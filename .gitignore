@@ -1,0 +1,26 @@
+# Environment & System
+.env
+.venv/
+venv/
+ENV/
+**/.DS_Store
+*.log
+*.tmp
+Thumbs.db
+
+# Caches & Build
+**/__pycache__/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.build/
+dist/
+build/
+*.pyc
+*.pyo
+*.pyd
+
+# Project Specific
+chainnokizuna/data/*.txt
+!chainnokizuna/data/.gitkeep
+config*.json

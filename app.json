@@ -1,0 +1,88 @@
+{
+  "name": "Chain No Kizuna",
+  "description": "A sophisticated Telegram word chain bot built with aiogram, motor, and redis.",
+  "repository": "https://github.com/bisug/Chain-No-Kizuna",
+  "keywords": [
+    "telegram",
+    "bot",
+    "word-chain",
+    "python",
+    "asyncio",
+    "heroku",
+    "mongodb",
+    "redis"
+  ],
+  "env": {
+    "TOKEN": {
+      "description": "Main Telegram Bot Token (Get from @BotFather)",
+      "required": true
+    },
+    "VP_TOKEN": {
+      "description": "Virtual Player Bot Token (Optional, get from @BotFather)",
+      "required": false
+    },
+    "MONGO_URI": {
+      "description": "MongoDB connection string (Get from MongoDB Atlas or local DB)",
+      "required": true
+    },
+    "REDIS_URL": {
+      "description": "Redis connection URL (e.g., redis://default:pass@host:port)",
+      "required": true
+    },
+    "SUPPORT_GROUP": {
+      "description": "Telegram Support Group username (without @)",
+      "value": "SuMelodyVibes",
+      "required": false
+    },
+    "UPDATE_CHANNEL": {
+      "description": "Telegram Update Channel username (without @)",
+      "value": "SuMelodyVibes",
+      "required": false
+    },
+    "OWNER_ID": {
+      "description": "Your numeric Telegram user ID (Get from @userinfobot)",
+      "required": true
+    },
+    "ADMIN_GROUP_ID": {
+      "description": "ID of the group where admin logs will be sent",
+      "required": false,
+      "value": "0"
+    },
+    "OFFICIAL_GROUP_ID": {
+      "description": "ID of the official game group",
+      "required": false,
+      "value": "0"
+    },
+    "WORD_ADDITION_CHANNEL_ID": {
+      "description": "ID of the channel where word additions are announced",
+      "required": false,
+      "value": "0"
+    },
+    "VIP": {
+      "description": "Comma-separated list of VIP user IDs or JSON list",
+      "required": false,
+      "value": "[]"
+    },
+    "VIP_GROUP": {
+      "description": "Comma-separated list of VIP group IDs or JSON list",
+      "required": false,
+      "value": "[]"
+    },
+    "LOG_LEVEL": {
+      "description": "Logging level (DEBUG, INFO, WARNING, ERROR)",
+      "required": false,
+      "value": "INFO"
+    }
+  },
+  "formation": {
+    "worker": {
+      "quantity": 1,
+      "size": "basic"
+    }
+  },
+  "buildpacks": [
+    {
+      "url": "heroku/python"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+.git
+__pycache__
+*.pyc
+.venv
+venv
+env
+.env
+config.json
+*.db
+*.log
+.mypy_cache
+.pytest_cache
