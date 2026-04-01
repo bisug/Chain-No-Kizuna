@@ -54,7 +54,7 @@ class EliminationGame(ClassicGame):
         game.exceeded_score_limit = data.get("exceeded_score_limit", False)
         return game
 
-    
+
     @property
     def min_word_length_enforced(self) -> bool:
         return False
@@ -70,7 +70,7 @@ class EliminationGame(ClassicGame):
         players = self.players_in_game[:]
         # Sort by letter count descending then user id ascending
         players.sort(key=lambda k: (-k.score, k.user_id))
-        
+
         # Generate all formatted lines first
         lines = []
         show_idx = -1
@@ -84,10 +84,10 @@ class EliminationGame(ClassicGame):
         if total <= 10 or not show_player:
             # If few players or specific player not highlighted, show up to 10 (top 10 ideally)
             # But original logic showed *all* if <= 10.
-            # If total > 10 and no show_player, original showed top 10? 
-            # Original code: "if not show_player: Show every player". 
+            # If total > 10 and no show_player, original showed top 10?
+            # Original code: "if not show_player: Show every player".
             # Wait, if 100 players and no show_player, it showed 100 lines? That's spammy.
-            # I'll stick to showing all if not show_player for backward compatibility, 
+            # I'll stick to showing all if not show_player for backward compatibility,
             # OR cap it at 10 to reduce spam (User suggestion 2 was "Reduce Chat Spam").
             # But the user specifically asked for "refactor leaderboard", not "change behavior".
             # I'll keep behavior close to original but cleaner.
@@ -100,7 +100,7 @@ class EliminationGame(ClassicGame):
         # If player is in top 5 or bottom 5, show top 5 ... bottom 5
         if show_idx < 5 or show_idx >= total - 5:
             return "\n".join(lines[:5] + ["..."] + lines[-5:])
-        
+
         # Player is in the middle
         return "\n".join(lines[:5] + ["..."] + [lines[show_idx]] + ["..."] + lines[-5:])
 

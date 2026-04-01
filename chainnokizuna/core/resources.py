@@ -96,7 +96,7 @@ async def init_resources() -> None:
     if vp_bot:
         GlobalState.vp_user = await vp_bot.get_me()
         logger.info(f"Virtual player initialized: @{GlobalState.vp_user.username}")
-    
+
     logger.info(f"Bot initialized: @{GlobalState.bot_user.username}")
 
     logger.info("Connecting to MongoDB...")
@@ -137,24 +137,24 @@ async def init_resources() -> None:
 async def ensure_indexes() -> None:
     """Ensure MongoDB indexes exist on startup."""
     db = get_db()
-    
+
     logger.info("Initializing MongoDB indexes...")
-    
+
     # Games collection
     await db.games.create_index([("group_id", 1)])
     await db.games.create_index([("start_time", -1)])
     await db.games.create_index([("participants.user_id", 1)])
     await db.games.create_index([("game_mode", 1)])
-    
+
     # Players collection
     # _id is already indexed (user_id)
     await db.players.create_index([("word_count", -1)])
     await db.players.create_index([("letter_count", -1)])
-    
+
     # Wordlist collection
     await db.wordlist.create_index([("word", 1)], unique=True)
     await db.wordlist.create_index([("accepted", 1)])
-    
+
     logger.info("MongoDB indexes verified.")
 
 async def close_resources() -> None:

@@ -48,7 +48,7 @@ class Words:
                         logger.warning(f"Failed to fetch words from source: {resp.status}")
             except Exception as e:
                 logger.error(f"Error fetching words from source: {e}")
-            
+
             # Fallback to local cache
             try:
                 import os
@@ -117,9 +117,9 @@ def get_random_word(
 
     # Use DAWG prefix search if available
     iterator = Words.dawg.iterkeys(prefix) if prefix else Words.dawg.iterkeys()
-    
+
     candidates = []
-    
+
     for w in iterator:
         if len(w) < min_len:
             continue
@@ -130,6 +130,6 @@ def get_random_word(
         if exclude_words and w in exclude_words:
             continue
         candidates.append(w)
-        
+
     return random.choice(candidates) if candidates else None
 

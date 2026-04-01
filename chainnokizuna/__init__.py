@@ -38,11 +38,29 @@ async def background_task_loop():
             logger.error(f"Error in background task loop: {e}")
 
 
+async def sync_task_loop():
+    """Periodic task loop to sync Redis with MongoDB (every 24 hours)."""
+    while True:
+        # 1-hour initial delay for safety, then 24 hours
+        await asyncio.sleep(3600)
+
+        from chainnokizuna.services.leader import LeaderElection
+        if await LeaderElection.is_leader():
+            try:
+                from chainnokizuna.db.sync import sync_logic
+                logger.info("Starting periodic database sync (Redis <-> MongoDB)...")
+                await sync_logic()
+            except Exception as e:
+                logger.error(f"Periodic sync failed: {e}")
+
+        await asyncio.sleep(24 * 3600 - 3600)
+
+
 @dp.startup()
 async def startup():
     """Bot initialization hook: starts resources and background workers."""
     await init_resources()
-    
+
     # Ensure word list is loaded BEFORE bot starts accepting messages
     try:
         await Words.update()
@@ -50,6 +68,7 @@ async def startup():
         logger.error(f"Initial word dictionary update failed: {e}")
 
     asyncio.create_task(background_task_loop())
+    asyncio.create_task(sync_task_loop())
     try:
         bot_name = GlobalState.bot_user.full_name if GlobalState.bot_user else "Bot"
         await send_admin_group(f"{bot_name} starting.")

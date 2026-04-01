@@ -105,7 +105,7 @@ async def cmd_ping(message: types.Message) -> None:
     start = time.time()
     msg = await message.reply("Pong!")
     end = time.time()
-    
+
     try:
         import psutil
         cpu = psutil.cpu_percent()

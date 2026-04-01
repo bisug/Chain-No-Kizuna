@@ -10,14 +10,12 @@ from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.utils.chat_member import ADMINS, MEMBERS
 
-from config import GameSettings, GameState, OWNER_ID, VIP
+from config import GameSettings, GameState, OWNER_ID
 from chainnokizuna.models.player import Player
 from chainnokizuna.core.resources import GlobalState, bot, vp_bot, get_db
 from chainnokizuna.utils.keyboards import get_add_vp_to_group_keyboard
 from chainnokizuna.utils.telegram import send_admin_group
 from chainnokizuna.services.words import check_word_existence, get_random_word
-from chainnokizuna.services.words import Words
-from chainnokizuna.utils.timer import GameTimer
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +65,7 @@ class ClassicGame:
 
         self.join_lock = asyncio.Lock()  # Prevent same user / vp joining as multiple players
         self.answer_lock = asyncio.Lock() # Protect against race conditions in turn processing
-        
+
         self._admin_cache: dict[int, tuple[float, bool]] = {} # user_id -> (timestamp, is_admin)
 
     def to_dict(self) -> dict:
@@ -153,7 +151,7 @@ class ClassicGame:
             ts, is_adm = self._admin_cache[user_id]
             if now - ts < 15: # 15s TTL
                 return is_adm
-        
+
         try:
             user = await bot.get_chat_member(self.group_id, user_id)
             is_adm = isinstance(user, ADMINS)
@@ -162,7 +160,7 @@ class ClassicGame:
                 is_adm = False
             else:
                 raise e
-        
+
         self._admin_cache[user_id] = (now, is_adm)
         return is_adm
 
@@ -494,7 +492,7 @@ class ClassicGame:
                     f"<i>{word.capitalize()}</i> does not start with <i>{self.current_word[-1].upper()}</i>."
                 )
                 return
-            
+
             if self.min_word_length_enforced and len(word) < self.min_letters_limit:
                 await message.reply(
                     f"<i>{word.capitalize()}</i> has less than {self.min_letters_limit} letters."
@@ -635,7 +633,7 @@ class ClassicGame:
     async def update_db(self) -> None:
         """Asynchronously exports game results and player statistics to MongoDB."""
         db = get_db()
-        
+
         # Prepare game document
         participants = []
         for player in self.players:
@@ -669,7 +667,7 @@ class ClassicGame:
         # Prepare bulk operations for player stats
         from pymongo import UpdateOne
         operations = []
-        
+
         for p in participants:
             operations.append(
                 UpdateOne(
@@ -696,6 +694,16 @@ class ClassicGame:
         if operations:
             await db.players.bulk_write(operations)
 
+        # --- Redis Dual-Write (Stats Layer) ---
+        try:
+            from chainnokizuna.db.redis import incr_global_stats
+            # Aggregate stats from this game
+            total_words = sum(p["word_count"] for p in participants)
+            total_letters = sum(p["letter_count"] for p in participants)
+            await incr_global_stats(words=total_words, letters=total_letters, games=1)
+        except Exception as e:
+            logger.error(f"Failed to update Redis stats during update_db: {e}")
+
     async def scan_for_stale_timer(self) -> None:
         # Check if game timer is stuck
         prev = self.time_left
@@ -713,17 +721,82 @@ class ClassicGame:
         except Exception:
             pass
 
-        GlobalState.games.pop(self.group_id, None)
+    async def _cleanup_redis(self) -> None:
+        """Removes the game from Redis persistence."""
         from chainnokizuna.db.redis import remove_game
         await remove_game(self.group_id)
+
+    async def _handle_engine_error(self, e: Exception) -> None:
+        """Handles unexpected errors in the game engine."""
+        logger.error(f"Game engine error in group {self.group_id}: {e}")
+        GlobalState.games.pop(self.group_id, None)
+        await self._cleanup_redis()
+        try:
+            await self.send_message(
+                f"Game ended due to the following error:\n<code>{e.__class__.__name__}: {e}</code>.\n"
+                "My owner will be notified."
+            )
+        except Exception:
+            pass
+        raise e
+
+    async def _run_game_engine(self) -> None:
+        """The core game engine that drives the timer and phase transitions."""
+        negative_timer = 0
+        from chainnokizuna.utils.timer import GameTimer
+        
+        try:
+            async for delta in GameTimer():
+                if self.state == GameState.JOINING:
+                    # JOINING Phase logic
+                    if self.time_left > 0:
+                        self.time_left -= delta
+                        if self.time_left in GameSettings.JOINING_PHASE_WARNINGS:
+                            await self.send_message(f"{self.time_left}s left to /join.")
+                    elif len(self.players) < self.min_players:
+                        await self.send_message("Not enough players. Game terminated.")
+                        GlobalState.games.pop(self.group_id, None)
+                        await self._cleanup_redis()
+                        return
+                    else:
+                        await self._transition_to_running()
+                
+                elif self.state == GameState.RUNNING:
+                    # RUNNING Phase logic
+                    if self.time_left < 0:
+                        negative_timer += delta
+                    if negative_timer >= 5:
+                        raise ValueError("Prolonged negative timer.")
+
+                    for _ in range(delta):
+                         if await self.running_phase_tick():  # True: Game ended
+                            await self.update_db()
+                            return
+                
+                elif self.state == GameState.KILLGAME:
+                    await self.send_message("Game ended forcibly.")
+                    GlobalState.games.pop(self.group_id, None)
+                    await self._cleanup_redis()
+                    return
+        except Exception as e:
+            await self._handle_engine_error(e)
+
+    async def _transition_to_running(self) -> None:
+        """Transitions game from joining to running state."""
+        self.state = GameState.RUNNING
+        await self.send_message("Game is starting...")
+        random.shuffle(self.players)
+        self.players_in_game = self.players[:]
+        await self.running_initialization()
+        await self.send_turn_message()
+        from chainnokizuna.db.redis import save_game
+        await save_game(self)
 
     async def main_loop(self, message: types.Message) -> None:
         """
         The main game loop. Handles the game state transitions from JOINING to RUNNING to END.
         Uses a robust timer mechanism to prevent drift.
         """
-        # Attempt to fix issue of stuck game with negative timer.
-        negative_timer = 0
         try:
             await self.send_message(
                 f"A{'n' if self.name[0] in 'aeiou' else ''} {self.name} is starting.\n"
@@ -731,67 +804,12 @@ class ClassicGame:
                 f"{self.time_left}s to /join."
             )
             await self.join(message)
-
-            async for delta in GameTimer():
-
-
-
-                if self.state == GameState.JOINING:
-                    if self.time_left > 0:
-                        self.time_left -= delta
-                        if self.time_left in GameSettings.JOINING_PHASE_WARNINGS:
-                            await self.send_message(f"{self.time_left}s left to /join.")
-                    elif len(self.players) < self.min_players:
-                        await self.send_message("Not enough players. Game terminated.")
-                        del GlobalState.games[self.group_id]
-                        return
-                    else:
-                        self.state = GameState.RUNNING
-                        await self.send_message("Game is starting...")
-
-                        random.shuffle(self.players)
-                        self.players_in_game = self.players[:]
-
-                        await self.running_initialization()
-                        await self.send_turn_message()
-
-                        # Save initial running state
-                        from chainnokizuna.db.redis import save_game
-                        await save_game(self)
-                elif self.state == GameState.RUNNING:
-                    # Check for prolonged negative timer
-                    if self.time_left < 0:
-                        negative_timer += delta
-                    if negative_timer >= 5:
-                        raise ValueError("Prolonged negative timer.")
-
-                    # Run game tick `delta` times
-                    for _ in range(delta):
-                         if await self.running_phase_tick():  # True: Game ended
-                            await self.update_db()
-                            return
-                elif self.state == GameState.KILLGAME:
-                    await self.send_message("Game ended forcibly.")
-                    GlobalState.games.pop(self.group_id, None)
-                    from chainnokizuna.db.redis import remove_game
-                    await remove_game(self.group_id)
-                    return
-        except Exception as e:
-            GlobalState.games.pop(self.group_id, None)
-            from chainnokizuna.db.redis import remove_game
-            await remove_game(self.group_id)
-            try:
-                await self.send_message(
-                    f"Game ended due to the following error:\n<code>{e.__class__.__name__}: {e}</code>.\n"
-                    "My owner will be notified."
-                )
-            except Exception:
-                pass
-            raise
+            await self._run_game_engine()
+        except Exception:
+            pass
 
     async def resume_loop(self) -> None:
         """Resume a game that was restored from persistence (skip join phase)."""
-        negative_timer = 0
         try:
             await self.send_message(
                 f"⚡ Bot restarted! Resuming {self.name} with {len(self.players_in_game)} players.\n"
@@ -812,33 +830,11 @@ class ClassicGame:
             self.answered = False
             self.accepting_answers = True
             self.time_left = self.time_limit
-
             await self.send_turn_message()
 
-            async for delta in GameTimer():
-
-
-
-                if self.state == GameState.RUNNING:
-                    if self.time_left < 0:
-                        negative_timer += delta
-                    if negative_timer >= 5:
-                        raise ValueError("Prolonged negative timer.")
-
-                    for _ in range(delta):
-                        if await self.running_phase_tick():
-                            await self.update_db()
-                            return
-                elif self.state == GameState.KILLGAME:
-                    await self.send_message("Game ended forcibly.")
-                    GlobalState.games.pop(self.group_id, None)
-                    from chainnokizuna.db.redis import remove_game
-                    await remove_game(self.group_id)
-                    return
-        except Exception as e:
-            GlobalState.games.pop(self.group_id, None)
-            from chainnokizuna.db.redis import remove_game
-            await remove_game(self.group_id)
+            await self._run_game_engine()
+        except Exception:
+            pass
             try:
                 await self.send_message(
                     f"Game ended due to the following error:\n<code>{e.__class__.__name__}: {e}</code>.\n"
