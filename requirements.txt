@@ -1,6 +1,6 @@
 # # Core
 aiogram==3.26.0
-aiohttp==3.13.3
+aiohttp==3.13.4
 python-dotenv==1.2.2
 
 # Database & State
