@@ -15,8 +15,8 @@ class Player:
 
         from chainnokizuna.core.resources import GlobalState
         self.is_vp = (
-            vp_bot is not None 
-            and GlobalState.vp_user is not None 
+            vp_bot is not None
+            and GlobalState.vp_user is not None
             and user.id == GlobalState.vp_user.id
         )
         self.word_count = 0

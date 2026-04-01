@@ -5,9 +5,8 @@ from typing import Type
 from aiogram.filters import Command, CommandObject
 
 from chainnokizuna.core.resources import GlobalState, vp_bot
-from config import GameSettings, GameState, VIP, VIP_GROUP, UPDATE_CHANNEL
+from config import GameState, VIP, VIP_GROUP, UPDATE_CHANNEL
 from chainnokizuna.utils.decorators import send_groups_only_message
-from chainnokizuna.utils.keyboards import get_add_vp_to_group_keyboard
 from chainnokizuna.filters import HasGameInstance, IsAdmin, IsOwner
 from chainnokizuna.models import ClassicGame, EliminationGame, GAME_MODES, MixedEliminationGame, GuessTheWordGame
 from aiogram import Router, types, Bot

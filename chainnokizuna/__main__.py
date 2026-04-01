@@ -43,10 +43,10 @@ async def main() -> None:
             if await leader_election.acquire():
                 logger.info(f"Instance {instance_id} is now LEADER. Starting polling...")
                 game_tasks = []
-                
+
                 try:
                     await asyncio.gather(*(b.delete_webhook(drop_pending_updates=True) for b in active_bots))
-                    
+
                     # --- State restoration ---
                     try:
                         restored_games = await load_all_games()
@@ -55,7 +55,7 @@ async def main() -> None:
                             if game.state == GameState.RUNNING:
                                 GlobalState.games[game.group_id] = game
                                 game_tasks.append(asyncio.create_task(game.resume_loop()))
-                        
+
                         if restored_games:
                             logger.info(f"Restored {len(restored_games)} active game(s).")
                     except Exception as e:
@@ -64,7 +64,7 @@ async def main() -> None:
                     await dp.start_polling(*active_bots, drop_pending_updates=True)
                     logger.info("Polling finished. Exiting...")
                     break
-                    
+
                 except TelegramConflictError:
                     logger.warning("Conflict: terminated by another instance. Retrying...")
                 except Exception as e:
@@ -75,13 +75,13 @@ async def main() -> None:
                         task.cancel()
                     if game_tasks:
                         await asyncio.gather(*game_tasks, return_exceptions=True)
-                    
+
                     GlobalState.games.clear()
                     await leader_election.release()
             else:
                 logger.debug(f"Standby - {instance_id}")
                 await asyncio.sleep(5)
-                
+
     except (KeyboardInterrupt, SystemExit):
         logger.info("Bot interrupted.")
     finally:

@@ -1,6 +1,5 @@
 import logging
 import asyncio
-import time
 from typing import Optional
 
 from chainnokizuna.core.resources import get_vk
@@ -12,7 +11,7 @@ class LeaderElection:
     Implements a simple leader election mechanism using Redis.
     Ensures only one bot instance is active (polling) at a time.
     """
-    
+
     KEY = "bot:leader"
     TTL = 10  # expire key after 10 seconds
     RENEW_INTERVAL = 5  # renew leadership every 5 seconds
@@ -52,7 +51,7 @@ class LeaderElection:
             except asyncio.CancelledError:
                 pass
             self._renew_task = None
-        
+
         try:
             redis_client = get_vk()
             script = """

@@ -15,6 +15,8 @@ logger = logging.getLogger(__name__)
 # Redis key constants
 ACTIVE_GAMES_KEY = "active_games"
 GAME_KEY_PREFIX = "game:"
+GLOBAL_STATS_KEY = "stats:global"
+LEADERBOARD_KEY = "leaderboard:guess_the_word"
 
 
 def _get_redis():
@@ -48,7 +50,7 @@ def _get_game_class(type_name: str):
 async def save_game(game: "ClassicGame") -> None:
     """Save a game's state to Redis."""
     import asyncio
-    
+
     redis_client = _get_redis()
     if redis_client is None:
         return  # No Redis available, silently skip
@@ -76,13 +78,13 @@ async def save_game(game: "ClassicGame") -> None:
 async def remove_game(group_id: int) -> None:
     """Remove a game's state from Redis when it ends."""
     import asyncio
-    
+
     redis_client = _get_redis()
     if redis_client is None:
         return
 
     key = f"{GAME_KEY_PREFIX}{group_id}"
-    
+
     for attempt in range(3):
         try:
             await redis_client.delete(key)
@@ -136,3 +138,81 @@ async def load_all_games() -> list["ClassicGame"]:
         logger.error(f"Failed to load game states: {e}")
 
     return games
+
+
+async def incr_global_stats(words: int = 0, letters: int = 0, games: int = 0) -> None:
+    """Increment global statistics counters in Redis."""
+    redis_client = _get_redis()
+    if redis_client is None:
+        return
+
+    try:
+        async with redis_client.pipeline(transaction=True) as pipe:
+            if words:
+                pipe.hincrby(GLOBAL_STATS_KEY, "total_words", words)
+            if letters:
+                pipe.hincrby(GLOBAL_STATS_KEY, "total_letters", letters)
+            if games:
+                pipe.hincrby(GLOBAL_STATS_KEY, "total_games", games)
+            await pipe.execute()
+    except Exception as e:
+        logger.error(f"Failed to increment global stats in Redis: {e}")
+
+
+async def update_leaderboard(user_id: int, wins: int) -> None:
+    """Update a player's win count in the Redis sorted set leaderboard."""
+    redis_client = _get_redis()
+    if redis_client is None:
+        return
+
+    try:
+        # ZADD: Sets the score (wins) for the member (user_id)
+        await redis_client.zadd(LEADERBOARD_KEY, {str(user_id): wins})
+    except Exception as e:
+        logger.error(f"Failed to update leaderboard in Redis: {e}")
+
+
+async def get_redis_global_stats() -> Optional[dict]:
+    """Retrieve global statistics counters from Redis."""
+    redis_client = _get_redis()
+    if redis_client is None:
+        return None
+
+    try:
+        res = await redis_client.hgetall(GLOBAL_STATS_KEY)
+        if not res:
+            return None
+        # Convert values to integers
+        return {k: int(v) for k, v in res.items()}
+    except Exception as e:
+        logger.error(f"Failed to get global stats from Redis: {e}")
+        return None
+
+
+async def get_redis_leaderboard(skip: int, limit: int) -> list[tuple[str, int]]:
+    """Retrieve a page of the leaderboard from Redis."""
+    redis_client = _get_redis()
+    if redis_client is None:
+        return []
+
+    try:
+        # ZREVRANGE: Returns members in descending order of score
+        res = await redis_client.zrevrange(
+            LEADERBOARD_KEY, skip, skip + limit - 1, withscores=True
+        )
+        # Result is a list of (member, score) tuples. We convert score to int.
+        return [(str(m), int(s)) for m, s in res]
+    except Exception as e:
+        logger.error(f"Failed to get leaderboard from Redis: {e}")
+        return []
+
+
+async def get_leaderboard_total_count() -> int:
+    """Get the total number of players in the leaderboard."""
+    redis_client = _get_redis()
+    if redis_client is None:
+        return 0
+    try:
+        return await redis_client.zcard(LEADERBOARD_KEY)
+    except Exception:
+        return 0

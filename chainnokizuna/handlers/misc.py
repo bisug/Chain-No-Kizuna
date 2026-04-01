@@ -10,8 +10,6 @@ from chainnokizuna.core.resources import GlobalState, get_db
 from config import ADMIN_GROUP_ID, OFFICIAL_GROUP_ID, VIP, OWNER_ID, SUPPORT_GROUP, UPDATE_CHANNEL
 from chainnokizuna.filters import IsOwner
 from chainnokizuna.models import GAME_MODES
-from chainnokizuna.utils.keyboards import get_add_to_group_keyboard
-from chainnokizuna.utils.telegram import awaitable_to_coroutine
 from chainnokizuna.services.words import is_word
 from chainnokizuna.services.words import Words
 
@@ -100,13 +98,13 @@ async def cmd_mongo(message: types.Message, command: CommandObject) -> None:
         part = args.split(".", 1)
         if len(part) < 2:
             raise ValueError("Invalid format. Use collection.operation(...)")
-        
+
         coll_name, rest = part
         op, _, params = rest.partition("(")
         params = params.rstrip(")")
-        
+
         collection = db[coll_name]
-        
+
         if op == "find":
             query = orjson.loads(params or "{}")
             cursor = collection.find(query)
@@ -126,7 +124,7 @@ async def cmd_mongo(message: types.Message, command: CommandObject) -> None:
 async def new_member(event: types.ChatMemberUpdated) -> None:
     bot = event.bot
     bot_user = await bot.me()
-    
+
     if event.new_chat_member.user.id == bot.id:  # self added to group
         await event.answer(
             f"<b>✅ Thanks for adding {html.quote(bot_user.full_name)}!</b>\n\n"
@@ -146,7 +144,6 @@ async def new_member(event: types.ChatMemberUpdated) -> None:
 
 @router.inline_query()
 async def inline_handler(inline_query: types.InlineQuery) -> None:
-    bot = inline_query.bot
     text = inline_query.query.lower()
     results: list[types.InlineQueryResultUnion] = []
 
