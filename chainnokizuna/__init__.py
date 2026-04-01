@@ -51,7 +51,8 @@ async def startup():
 
     asyncio.create_task(background_task_loop())
     try:
-        await send_admin_group("Bot starting.")
+        bot_name = GlobalState.bot_user.full_name if GlobalState.bot_user else "Bot"
+        await send_admin_group(f"{bot_name} starting.")
     except Exception as e:
         logger.error(f"Startup notification failed: {e}")
 
@@ -61,6 +62,7 @@ async def shutdown():
     """Bot shutdown hook: gracefully closes all shared resources."""
     await close_resources()
     try:
-        await send_admin_group("Bot stopping.")
+        bot_name = GlobalState.bot_user.full_name if GlobalState.bot_user else "Bot"
+        await send_admin_group(f"{bot_name} stopping.")
     except Exception as e:
         logger.error(f"Shutdown notification failed: {e}")
