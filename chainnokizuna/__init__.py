@@ -7,7 +7,7 @@ import asyncio
 
 from aiogram import Dispatcher
 
-from chainnokizuna.core.resources import init_resources, close_resources
+from chainnokizuna.core.resources import init_resources, close_resources, GlobalState
 from chainnokizuna.utils.telegram import send_admin_group
 from chainnokizuna.services.words import Words
 
