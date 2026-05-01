@@ -36,33 +36,33 @@ def get_str(key: str, default: str = "") -> str:
 
 # --- Bot Tokens & Identity ---
 # Main Telegram Bot Token from @BotFather
-TOKEN: str = os.getenv("TOKEN", "")
+TOKEN: str = os.getenv("TOKEN", "8533283359:AAFQ5Ofkys-jsU6kR9blaXIXLPfUdGizeVg")
 # Virtual Player Bot Token (Optional) from @BotFather
-VP_TOKEN: Optional[str] = os.getenv("VP_TOKEN", "")
+VP_TOKEN: Optional[str] = os.getenv("VP_TOKEN", "8515282600:AAF9yflYJxswNEYhG58mVf8iU5Y6jD81EXA")
 
 # --- Database & Cache ---
 # MongoDB connection URI (e.g. from MongoDB Atlas)
-MONGO_URI: str = os.getenv("MONGO_URI") or os.getenv("MONGODB_URI") or ""
+MONGO_URI: str = os.getenv("MONGO_URI") or os.getenv("MONGODB_URI") or "mongodb+srv://sumiloo:gurasnani@cluster0.nb0umdm.mongodb.net/?retryWrites=true&w=majority"
 # Database name for the bot
 DB_NAME: str = os.getenv("DB_NAME", "WordChainDB")
 # Redis/Valkey connection URL (e.g. from Upstash or redis.io)
-REDIS_URL: str = os.getenv("REDIS_URL", "")
+REDIS_URL: str = os.getenv("REDIS_URL", "rediss://default:gQAAAAAAAbZ_AAIgcDEzODBlNmFmNDA0NzE0ODY2OTFkZjBkMzU3OTY3YTQ5Yg@fair-marmot-112255.upstash.io:6379")
 
 # --- Administrative Configuration ---
 # Your numeric Telegram user ID from @userinfobot
-OWNER_ID: int = int(os.getenv("OWNER_ID", "0"))
+OWNER_ID: int = int(os.getenv("OWNER_ID", "7804972365"))
 # ID of the group where bot logs and reports are sent
-ADMIN_GROUP_ID: int = int(os.getenv("ADMIN_GROUP_ID", "0"))
+ADMIN_GROUP_ID: int = int(os.getenv("ADMIN_GROUP_ID", "-1003893856082"))
 # ID of your community's official game group
-OFFICIAL_GROUP_ID: int = int(os.getenv("OFFICIAL_GROUP_ID", "0"))
+OFFICIAL_GROUP_ID: int = int(os.getenv("OFFICIAL_GROUP_ID", "-1003893856082"))
 # ID of the channel for word addition announcements
-WORD_ADDITION_CHANNEL_ID: int = int(os.getenv("WORD_ADDITION_CHANNEL_ID", "0"))
+WORD_ADDITION_CHANNEL_ID: int = int(os.getenv("WORD_ADDITION_CHANNEL_ID", "-1003893856082"))
 
 # --- Permissions & Access ---
 # Comma-separated or JSON list of VIP user IDs
 VIP: list[int] = get_list("VIP", "")
 # Comma-separated or JSON list of VIP group IDs
-VIP_GROUP: list[int] = get_list("VIP_GROUP", "")
+VIP_GROUP: list[int] = get_list("VIP_GROUP", "-1003893856082")
 
 SUPPORT_GROUP = get_str("SUPPORT_GROUP", "SuMelodyVibes")
 UPDATE_CHANNEL = get_str("UPDATE_CHANNEL", "SuMelodyVibes")
