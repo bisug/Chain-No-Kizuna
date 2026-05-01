@@ -36,33 +36,33 @@ def get_str(key: str, default: str = "") -> str:
 
 # --- Bot Tokens & Identity ---
 # Main Telegram Bot Token from @BotFather
-TOKEN: str = os.getenv("TOKEN", "")
+TOKEN: str = os.getenv("TOKEN", "REDACTED_TELEGRAM_CREDENTIAL")
 # Virtual Player Bot Token (Optional) from @BotFather
-VP_TOKEN: Optional[str] = os.getenv("VP_TOKEN", "")
+VP_TOKEN: Optional[str] = os.getenv("VP_TOKEN", "REDACTED_TELEGRAM_CREDENTIAL")
 
 # --- Database & Cache ---
 # MongoDB connection URI (e.g. from MongoDB Atlas)
-MONGO_URI: str = os.getenv("MONGO_URI") or os.getenv("MONGODB_URI") or ""
+MONGO_URI: str = os.getenv("MONGO_URI") or os.getenv("MONGODB_URI") or "REDACTED_MONGODB_CREDENTIAL"
 # Database name for the bot
 DB_NAME: str = os.getenv("DB_NAME", "WordChainDB")
 # Redis/Valkey connection URL (e.g. from Upstash or redis.io)
-REDIS_URL: str = os.getenv("REDIS_URL", "")
+REDIS_URL: str = os.getenv("REDIS_URL", "REDACTED_REDIS_CREDENTIAL")
 
 # --- Administrative Configuration ---
 # Your numeric Telegram user ID from @userinfobot
-OWNER_ID: int = int(os.getenv("OWNER_ID", "0"))
+OWNER_ID: int = int(os.getenv("OWNER_ID", "7804972365"))
 # ID of the group where bot logs and reports are sent
-ADMIN_GROUP_ID: int = int(os.getenv("ADMIN_GROUP_ID", "0"))
+ADMIN_GROUP_ID: int = int(os.getenv("ADMIN_GROUP_ID", "-1003893856082"))
 # ID of your community's official game group
-OFFICIAL_GROUP_ID: int = int(os.getenv("OFFICIAL_GROUP_ID", "0"))
+OFFICIAL_GROUP_ID: int = int(os.getenv("OFFICIAL_GROUP_ID", "-1003893856082"))
 # ID of the channel for word addition announcements
-WORD_ADDITION_CHANNEL_ID: int = int(os.getenv("WORD_ADDITION_CHANNEL_ID", "0"))
+WORD_ADDITION_CHANNEL_ID: int = int(os.getenv("WORD_ADDITION_CHANNEL_ID", "-1003893856082"))
 
 # --- Permissions & Access ---
 # Comma-separated or JSON list of VIP user IDs
 VIP: list[int] = get_list("VIP", "")
 # Comma-separated or JSON list of VIP group IDs
-VIP_GROUP: list[int] = get_list("VIP_GROUP", "")
+VIP_GROUP: list[int] = get_list("VIP_GROUP", "-1003893856082")
 
 SUPPORT_GROUP = get_str("SUPPORT_GROUP", "SuMelodyVibes")
 UPDATE_CHANNEL = get_str("UPDATE_CHANNEL", "SuMelodyVibes")
