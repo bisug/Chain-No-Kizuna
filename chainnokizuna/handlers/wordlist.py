@@ -1,17 +1,18 @@
 import asyncio
 import time
 
-from aiogram import Router, types
+from aiogram import Router, types, F
 from aiogram.enums import ParseMode
 from aiogram.filters import Command, CommandObject
 
-from chainnokizuna.filters import IsOwner
+from chainnokizuna.filters import IsOwner, IsMainBot
 from chainnokizuna.core.resources import get_db, bot
 from chainnokizuna.utils.telegram import awaitable_to_coroutine, send_admin_group
 from chainnokizuna.services.words import check_word_existence, is_word, Words
 from config import WORD_ADDITION_CHANNEL_ID
 
 router = Router(name=__name__)
+router.message.filter(IsMainBot())
 
 
 @router.message(Command("exist", "exists"))

@@ -13,8 +13,10 @@ from chainnokizuna.utils.keyboards import inline_keyboard_from_button
 from chainnokizuna.utils.decorators import send_private_only_message
 from chainnokizuna.filters import IsOwner
 from chainnokizuna.services.words import Words
+from chainnokizuna.filters import IsMainBot
 
 router = Router(name=__name__)
+router.message.filter(IsMainBot())
 
 
 @router.message(CommandStart(deep_link=True, magic=F.args == "help"), F.chat.type == ChatType.PRIVATE)

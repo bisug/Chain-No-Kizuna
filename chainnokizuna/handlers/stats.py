@@ -4,16 +4,17 @@ import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional, Tuple
 
-from aiogram import Router, types, html
+from aiogram import Router, types, html, F
 from aiogram.enums import ParseMode
 from aiogram.filters import Command, CommandObject
 
 from chainnokizuna.core.resources import get_db, bot
-from chainnokizuna.filters import IsOwner
+from chainnokizuna.filters import IsOwner, IsMainBot
 from chainnokizuna.utils.decorators import send_groups_only_message
 import math
 
 router = Router(name=__name__)
+router.message.filter(IsMainBot())
 
 
 @router.message(Command("stat", "stats", "stalk"))
