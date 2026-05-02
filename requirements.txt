@@ -16,5 +16,4 @@ aiodns==4.0.0
 
 # Features & Utils
 dawg2==0.13.3
-matplotlib==3.10.8
 psutil==7.2.2
