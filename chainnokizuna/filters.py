@@ -1,4 +1,4 @@
-from aiogram import types
+from aiogram import types, Bot
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Filter
 from aiogram.utils.chat_member import ADMINS
@@ -38,4 +38,9 @@ class HasGameInstance(Filter):
         return message.chat.id in GlobalState.games
 
 
-filters = [IsOwner, IsVIP, IsAdmin, HasGameInstance]
+class IsMainBot(Filter):
+    async def __call__(self, message: types.Message, bot: Bot) -> bool:
+        return GlobalState.bot_user and bot.id == GlobalState.bot_user.id
+
+
+filters = [IsOwner, IsVIP, IsAdmin, HasGameInstance, IsMainBot]

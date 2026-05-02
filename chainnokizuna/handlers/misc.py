@@ -13,11 +13,13 @@ from chainnokizuna.models import GAME_MODES
 from chainnokizuna.utils.keyboards import get_add_to_group_keyboard
 from chainnokizuna.utils.telegram import awaitable_to_coroutine
 from chainnokizuna.services.words import is_word
+from chainnokizuna.filters import IsMainBot
 from chainnokizuna.services.words import Words
 
 logger = logging.getLogger(__name__)
 
 router = Router(name=__name__)
+router.message.filter(IsMainBot())
 
 
 @router.message(CommandStart(), F.chat.type == ChatType.PRIVATE)
