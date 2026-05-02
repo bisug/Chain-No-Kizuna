@@ -4,16 +4,17 @@ import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional, Tuple
 
-from aiogram import Router, types, html
+from aiogram import Router, types, html, F
 from aiogram.enums import ParseMode
 from aiogram.filters import Command, CommandObject
 
 from chainnokizuna.core.resources import get_db, bot
-from chainnokizuna.filters import IsOwner
+from chainnokizuna.filters import IsOwner, IsMainBot
 from chainnokizuna.utils.decorators import send_groups_only_message
 import math
 
 router = Router(name=__name__)
+router.message.filter(IsMainBot())
 
 
 @router.message(Command("stat", "stats", "stalk"))
@@ -41,8 +42,8 @@ async def cmd_stats(message: types.Message) -> None:
         f"<b>{res.get('game_count', 0)}</b> games played\n"
         f"<b>{res.get('win_count', 0)} ({win_rate:.0f}%)</b> games won\n"
         f"<b>{res.get('guess_word_wins', 0)}</b> Guess the Word wins\n"
-        f"<b>{res['word_count']}</b> total words played\n"
-        f"<b>{res['letter_count']}</b> total letters played"
+        f"<b>{res.get('word_count', 0)}</b> total words played\n"
+        f"<b>{res.get('letter_count', 0)}</b> total letters played"
     )
     if res.get("longest_word"):
         text += f"\nLongest word: <b>{res['longest_word'].capitalize()}</b>"
