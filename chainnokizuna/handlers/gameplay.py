@@ -10,7 +10,7 @@ from chainnokizuna.utils.decorators import send_groups_only_message
 from chainnokizuna.utils.keyboards import get_add_vp_to_group_keyboard
 from chainnokizuna.filters import HasGameInstance, IsAdmin, IsOwner
 from chainnokizuna.models import ClassicGame, EliminationGame, GAME_MODES, MixedEliminationGame, GuessTheWordGame
-from aiogram import Router, types, Bot
+from aiogram import Router, types, Bot, F
 from aiogram.enums import ParseMode
 
 gameplay_router = Router(name=__name__)
@@ -186,8 +186,8 @@ async def cmd_remvp(message: types.Message) -> None:
 
 
 
-@gameplay_router.message(HasGameInstance(), ~Command())
-@gameplay_router.edited_message(HasGameInstance(), ~Command())
+@gameplay_router.message(HasGameInstance(), F.text.regexp(r"^[a-zA-Z]{1,100}$"))
+@gameplay_router.edited_message(HasGameInstance(), F.text.regexp(r"^[a-zA-Z]{1,100}$"))
 async def answer_handler(message: types.Message, bot: Bot) -> None:
     """
     Global message handler for capturing game answers.
