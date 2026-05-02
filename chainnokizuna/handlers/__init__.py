@@ -1,11 +1,11 @@
 from chainnokizuna.handlers import gameplay, info, misc, stats, wordlist
 
 routers = [
-    gameplay.gameplay_router,
     info.router,
     misc.router,
     stats.router,
-    wordlist.router
+    wordlist.router,
+    gameplay.gameplay_router
 ]
 
 __all__ = (
