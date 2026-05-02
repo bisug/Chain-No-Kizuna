@@ -186,8 +186,8 @@ async def cmd_remvp(message: types.Message) -> None:
 
 
 
-@gameplay_router.message(HasGameInstance())
-@gameplay_router.edited_message(HasGameInstance())
+@gameplay_router.message(HasGameInstance(), ~Command())
+@gameplay_router.edited_message(HasGameInstance(), ~Command())
 async def answer_handler(message: types.Message, bot: Bot) -> None:
     """
     Global message handler for capturing game answers.

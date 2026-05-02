@@ -41,8 +41,8 @@ async def cmd_stats(message: types.Message) -> None:
         f"<b>{res.get('game_count', 0)}</b> games played\n"
         f"<b>{res.get('win_count', 0)} ({win_rate:.0f}%)</b> games won\n"
         f"<b>{res.get('guess_word_wins', 0)}</b> Guess the Word wins\n"
-        f"<b>{res['word_count']}</b> total words played\n"
-        f"<b>{res['letter_count']}</b> total letters played"
+        f"<b>{res.get('word_count', 0)}</b> total words played\n"
+        f"<b>{res.get('letter_count', 0)}</b> total letters played"
     )
     if res.get("longest_word"):
         text += f"\nLongest word: <b>{res['longest_word'].capitalize()}</b>"
