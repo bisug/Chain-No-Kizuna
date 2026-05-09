@@ -1,10 +1,10 @@
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Any
 
 import aiohttp
-import motor.motor_asyncio
+from pymongo import AsyncMongoClient, AsyncDatabase
 import redis.asyncio as redis
 from aiogram import Bot, types
 from aiogram.enums import ParseMode
@@ -54,7 +54,7 @@ vp_bot: Optional[Bot] = Bot(
 
 # Initialized on startup
 session: Optional[aiohttp.ClientSession] = None
-mongo_client: Optional[motor.motor_asyncio.AsyncIOMotorClient] = None
+mongo_client: Optional[AsyncMongoClient] = None
 vk: Optional[redis.Redis] = None
 
 
@@ -65,7 +65,7 @@ def get_session() -> aiohttp.ClientSession:
     return session
 
 
-def get_db() -> motor.motor_asyncio.AsyncIOMotorDatabase:
+def get_db() -> AsyncDatabase[dict[str, Any]]:
     """Returns the MongoDB database instance."""
     if mongo_client is None:
         raise RuntimeError("mongo_client is not initialized!")
@@ -101,7 +101,7 @@ async def init_resources() -> None:
 
     logger.info("Connecting to MongoDB...")
     try:
-        mongo_client = motor.motor_asyncio.AsyncIOMotorClient(
+        mongo_client = AsyncMongoClient(
             MONGO_URI,
             maxPoolSize=50,
             minPoolSize=10,
