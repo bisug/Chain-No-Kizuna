@@ -2,7 +2,7 @@ import orjson
 import random
 import logging
 import asyncio
-from typing import Any, Optional
+from typing import Optional
 from datetime import datetime, timezone
 
 from aiogram import types
@@ -300,7 +300,8 @@ class GuessTheWordGame(ClassicGame):
             await remove_game(self.group_id)
             try:
                 await self.send_message(f"Game ended due to error: <code>{e}</code>")
-            except: pass
+            except Exception:
+                pass
             raise
 
     async def update_db(self) -> None:
@@ -387,7 +388,7 @@ class GuessTheWordGame(ClassicGame):
 
         winner = self.players_in_game[0].mention if self.players_in_game else "No one"
         
-        text = f"🏁 <b>Guess the Word Summary!</b>\n\n"
+        text = "🏁 <b>Guess the Word Summary!</b>\n\n"
         text += f"Word: <b>{self.target_word.upper()}</b>\n"
         text += f"Winner: {winner}\n"
         text += f"Guesses: {self.guess_count}/{self.max_guesses}\n"
@@ -395,7 +396,7 @@ class GuessTheWordGame(ClassicGame):
         
         text += f"📊 <b>Guess History:</b>\n{grid}\n\n"
         
-        text += f"💡 <b>Educational Reveal:</b>\n"
+        text += "💡 <b>Educational Reveal:</b>\n"
         text += f"<b>Meaning:</b> <i>{meaning}</i>\n"
         text += f"<b>Example:</b> <i>\"{example}\"</i>"
 

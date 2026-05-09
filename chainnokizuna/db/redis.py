@@ -5,7 +5,7 @@ Saves active game state to Redis so games can survive bot restarts.
 
 import orjson
 import logging
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from chainnokizuna.models.game.classic import ClassicGame

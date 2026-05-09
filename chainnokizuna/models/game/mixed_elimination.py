@@ -8,7 +8,7 @@ from aiogram.enums import ParseMode
 from chainnokizuna.models.game.banned_letters import BannedLettersGame
 from chainnokizuna.models.game.chosen_first_letter import ChosenFirstLetterGame
 from chainnokizuna.models.game.classic import ClassicGame
-from chainnokizuna.models.game import EliminationGame, HardModeGame
+from chainnokizuna.models.game import EliminationGame
 from chainnokizuna.models.game.required_letter import RequiredLetterGame
 from chainnokizuna.services.words import check_word_existence, get_random_word
 
