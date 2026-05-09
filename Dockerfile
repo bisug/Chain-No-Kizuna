@@ -1,5 +1,5 @@
 # Stage 1: Builder
-FROM python:3.13.1-slim AS builder
+FROM python:3.13.13-slim AS builder
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -24,11 +24,16 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 
 # Stage 2: Runtime
-FROM python:3.13.1-slim AS runtime
+FROM python:3.13.13-slim AS runtime
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+# Enable Python 3.13 JIT
+ENV PYTHON_JIT=1
+
+# Set work directory
+WORKDIR /app
 
 # Install runtime system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -36,9 +41,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgirepository-1.0-1 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
-
-# Set work directory
-WORKDIR /app
 
 # Create a non-root user for security
 RUN groupadd -r kizuna && useradd -r -g kizuna kizuna

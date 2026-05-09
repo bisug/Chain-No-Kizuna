@@ -1,15 +1,12 @@
-import asyncio
-import os
 import time
-from datetime import datetime, timedelta, timezone
-from typing import Any, Optional, Tuple
+from typing import Optional, Tuple
 
-from aiogram import Router, types, html, F
+from aiogram import Router, types, html
 from aiogram.enums import ParseMode
-from aiogram.filters import Command, CommandObject
+from aiogram.filters import Command
 
-from chainnokizuna.core.resources import get_db, bot
-from chainnokizuna.filters import IsOwner, IsMainBot
+from chainnokizuna.core.resources import get_db
+from chainnokizuna.filters import IsMainBot
 from chainnokizuna.utils.decorators import send_groups_only_message
 import math
 
