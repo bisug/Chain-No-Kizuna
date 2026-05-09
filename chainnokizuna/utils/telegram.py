@@ -3,8 +3,8 @@ from typing import Any, Awaitable, Coroutine, Optional, TypeVar
 
 from aiogram import types
 
-from config import ADMIN_GROUP_ID
 from chainnokizuna.core.resources import bot
+from config import ADMIN_GROUP_ID
 
 T = TypeVar("T")
 

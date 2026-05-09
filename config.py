@@ -2,10 +2,11 @@
 Configuration management for the Word Chain bot.
 Handles environment variables, game settings, and global constants.
 """
-import orjson
 import logging
 import os
 from typing import Optional
+
+import orjson
 from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)

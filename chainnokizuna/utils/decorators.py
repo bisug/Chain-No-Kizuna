@@ -5,6 +5,7 @@ from aiogram import types
 
 from chainnokizuna.utils.keyboards import get_add_to_group_keyboard
 
+
 def send_private_only_message(f: Callable[..., Any]) -> Callable[..., Any]:
     @wraps(f)
     async def inner(message: types.Message, *args: Any, **kwargs: Any) -> None:

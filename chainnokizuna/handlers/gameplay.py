@@ -2,16 +2,21 @@ import asyncio
 import re
 from typing import Type
 
+from aiogram import Bot, F, Router, types
+from aiogram.enums import ParseMode
 from aiogram.filters import Command, CommandObject
 
-from chainnokizuna.core.resources import GlobalState, vp_bot, bot
-from config import GameSettings, GameState, VIP, VIP_GROUP, UPDATE_CHANNEL
+from chainnokizuna.core.resources import GlobalState, vp_bot
+from chainnokizuna.filters import HasGameInstance, IsAdmin, IsMainBot, IsOwner
+from chainnokizuna.models import (
+    GAME_MODES,
+    ClassicGame,
+    EliminationGame,
+    GuessTheWordGame,
+    MixedEliminationGame,
+)
 from chainnokizuna.utils.decorators import send_groups_only_message
-from chainnokizuna.utils.keyboards import get_add_vp_to_group_keyboard
-from chainnokizuna.filters import HasGameInstance, IsAdmin, IsOwner, IsMainBot
-from chainnokizuna.models import ClassicGame, EliminationGame, GAME_MODES, MixedEliminationGame, GuessTheWordGame
-from aiogram import Router, types, Bot, F
-from aiogram.enums import ParseMode
+from config import UPDATE_CHANNEL, VIP, VIP_GROUP, GameState
 
 gameplay_router = Router(name=__name__)
 gameplay_router.message.filter(IsMainBot())

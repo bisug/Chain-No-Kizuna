@@ -2,6 +2,7 @@ from aiogram import types
 
 from chainnokizuna.core.resources import GlobalState
 
+
 def inline_keyboard_from_button(button: types.InlineKeyboardButton) -> types.InlineKeyboardMarkup:
     return types.InlineKeyboardMarkup(inline_keyboard=[[button]])
 

@@ -6,8 +6,8 @@ from aiogram.enums import ParseMode
 
 from chainnokizuna.models.game.classic import ClassicGame
 from chainnokizuna.models.player import Player
-from config import GameSettings, GameState
 from chainnokizuna.services.words import get_random_word
+from config import GameSettings, GameState
 
 
 class EliminationGame(ClassicGame):

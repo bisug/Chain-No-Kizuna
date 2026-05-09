@@ -2,19 +2,28 @@ import asyncio
 import logging
 from uuid import uuid4
 
-from aiogram import Router, F, types, html
+from aiogram import F, Router, html, types
 from aiogram.enums import ChatType, ParseMode
-from aiogram.filters import JOIN_TRANSITION, ChatMemberUpdatedFilter, Command, CommandObject, CommandStart
+from aiogram.filters import (
+    JOIN_TRANSITION,
+    ChatMemberUpdatedFilter,
+    Command,
+    CommandObject,
+    CommandStart,
+)
 
 from chainnokizuna.core.resources import GlobalState, get_db
-from config import ADMIN_GROUP_ID, OFFICIAL_GROUP_ID, VIP, OWNER_ID, SUPPORT_GROUP, UPDATE_CHANNEL
-from chainnokizuna.filters import IsOwner
+from chainnokizuna.filters import IsMainBot, IsOwner
 from chainnokizuna.models import GAME_MODES
-from chainnokizuna.utils.keyboards import get_add_to_group_keyboard
-from chainnokizuna.utils.telegram import awaitable_to_coroutine
-from chainnokizuna.services.words import is_word
-from chainnokizuna.filters import IsMainBot
-from chainnokizuna.services.words import Words
+from chainnokizuna.services.words import Words, is_word
+from config import (
+    ADMIN_GROUP_ID,
+    OFFICIAL_GROUP_ID,
+    OWNER_ID,
+    SUPPORT_GROUP,
+    UPDATE_CHANNEL,
+    VIP,
+)
 
 logger = logging.getLogger(__name__)
 

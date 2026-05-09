@@ -10,14 +10,13 @@ from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.utils.chat_member import ADMINS, MEMBERS
 
-from config import GameSettings, GameState, OWNER_ID, VIP
+from chainnokizuna.core.resources import GlobalState, bot, get_db, vp_bot
 from chainnokizuna.models.player import Player
-from chainnokizuna.core.resources import GlobalState, bot, vp_bot, get_db
+from chainnokizuna.services.words import check_word_existence, get_random_word
 from chainnokizuna.utils.keyboards import get_add_vp_to_group_keyboard
 from chainnokizuna.utils.telegram import send_admin_group
-from chainnokizuna.services.words import check_word_existence, get_random_word
-from chainnokizuna.services.words import Words
 from chainnokizuna.utils.timer import GameTimer
+from config import OWNER_ID, GameSettings, GameState
 
 logger = logging.getLogger(__name__)
 

@@ -1,5 +1,5 @@
 import asyncio
-from typing import AsyncIterator
+
 
 class GameTimer:
     """

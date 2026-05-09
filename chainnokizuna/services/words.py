@@ -1,14 +1,14 @@
 import asyncio
-import aiofiles
 import logging
 import random
 from string import ascii_lowercase
 from typing import Optional
 
+import aiofiles
 from dawg import CompletionDAWG
 
-from config import WORDLIST_SOURCE
 from chainnokizuna.core.resources import get_db, get_session
+from config import WORDLIST_SOURCE
 
 logger = logging.getLogger(__name__)
 

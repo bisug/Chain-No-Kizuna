@@ -1,10 +1,10 @@
-from aiogram import types, Bot
+from aiogram import Bot, types
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Filter
 from aiogram.utils.chat_member import ADMINS
 
-from config import OWNER_ID, VIP
 from chainnokizuna.core.resources import GlobalState
+from config import OWNER_ID, VIP
 
 
 class IsOwner(Filter):

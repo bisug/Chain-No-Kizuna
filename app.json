@@ -1,6 +1,6 @@
 {
   "name": "Chain No Kizuna",
-  "description": "A sophisticated Telegram word chain bot built with aiogram, motor, and redis.",
+  "description": "A sophisticated Telegram word chain bot built with aiogram, pymongo, and redis.",
   "repository": "https://github.com/bisug/Chain-No-Kizuna",
   "keywords": [
     "telegram",

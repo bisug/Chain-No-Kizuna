@@ -1,15 +1,15 @@
 from chainnokizuna.models.game import (
+    GAME_MODES,
     BannedLettersGame,
     ChaosGame,
     ChosenFirstLetterGame,
     ClassicGame,
     EliminationGame,
-    GAME_MODES,
+    GuessTheWordGame,
     HardModeGame,
     MixedEliminationGame,
-    RequiredLetterGame,
     RandomFirstLetterGame,
-    GuessTheWordGame,
+    RequiredLetterGame,
 )
 from chainnokizuna.models.player import Player
 

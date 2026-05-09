@@ -2,14 +2,14 @@
 Core initialization for the Chain No Kizuna bot.
 Sets up logging, configures the dispatcher with handlers, and defines bot-level lifecycle events.
 """
-import logging
 import asyncio
+import logging
 
 from aiogram import Dispatcher
 
-from chainnokizuna.core.resources import init_resources, close_resources, GlobalState
-from chainnokizuna.utils.telegram import send_admin_group
+from chainnokizuna.core.resources import GlobalState, close_resources, init_resources
 from chainnokizuna.services.words import Words
+from chainnokizuna.utils.telegram import send_admin_group
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",

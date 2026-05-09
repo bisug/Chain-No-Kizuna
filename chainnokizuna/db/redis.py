@@ -3,9 +3,10 @@
 Saves active game state to Redis so games can survive bot restarts.
 """
 
-import orjson
 import logging
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
+
+import orjson
 
 if TYPE_CHECKING:
     from chainnokizuna.models.game.classic import ClassicGame
@@ -26,9 +27,16 @@ def _get_redis():
 def _get_game_class(type_name: str):
     """Resolve a game class from its type name string."""
     from chainnokizuna.models.game import (
-        ClassicGame, HardModeGame, ChaosGame, ChosenFirstLetterGame,
-        RandomFirstLetterGame, BannedLettersGame, RequiredLetterGame,
-        EliminationGame, MixedEliminationGame, GuessTheWordGame,
+        BannedLettersGame,
+        ChaosGame,
+        ChosenFirstLetterGame,
+        ClassicGame,
+        EliminationGame,
+        GuessTheWordGame,
+        HardModeGame,
+        MixedEliminationGame,
+        RandomFirstLetterGame,
+        RequiredLetterGame,
     )
     mapping = {
         "ClassicGame": ClassicGame,

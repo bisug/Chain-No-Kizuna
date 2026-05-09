@@ -11,9 +11,15 @@ import uuid
 from aiogram.exceptions import TelegramConflictError
 
 from chainnokizuna import dp
-from chainnokizuna.services.leader import LeaderElection
-from chainnokizuna.core.resources import init_resources, close_resources, bot, vp_bot, GlobalState
+from chainnokizuna.core.resources import (
+    GlobalState,
+    bot,
+    close_resources,
+    init_resources,
+    vp_bot,
+)
 from chainnokizuna.db.redis import load_all_games
+from chainnokizuna.services.leader import LeaderElection
 from config import GameState
 
 random.seed(time.time())

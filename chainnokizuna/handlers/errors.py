@@ -3,12 +3,11 @@ import traceback
 
 from aiogram import types
 from aiogram.enums import ParseMode
-from aiogram.exceptions import (TelegramBadRequest, TelegramForbiddenError, TelegramMigrateToChat,
-                                TelegramRetryAfter, TelegramAPIError, TelegramUnauthorizedError)
+from aiogram.exceptions import TelegramMigrateToChat, TelegramRetryAfter
 
 from chainnokizuna.core.resources import GlobalState, get_db
-from config import ADMIN_GROUP_ID, GameState
-from chainnokizuna.utils.telegram import send_admin_group, awaitable_to_coroutine
+from chainnokizuna.utils.telegram import awaitable_to_coroutine, send_admin_group
+from config import GameState
 
 
 async def migrate_chat(old_chat_id: int, new_chat_id: int) -> None:

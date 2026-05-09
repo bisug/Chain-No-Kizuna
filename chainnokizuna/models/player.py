@@ -1,4 +1,4 @@
-from aiogram import types, html
+from aiogram import html, types
 
 from chainnokizuna.core.resources import vp_bot
 
