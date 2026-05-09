@@ -5,6 +5,9 @@ FROM python:3.13.13-slim AS builder
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uv/bin/uv
+
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
@@ -15,12 +18,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /build
+WORKDIR /app
 
-# Upgrade pip and build wheels
-COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip wheel --no-cache-dir --no-deps --wheel-dir /build/wheels -r requirements.txt
+# Install dependencies using uv
+COPY pyproject.toml uv.lock ./
+RUN /uv/bin/uv sync --frozen --no-install-project --no-dev
 
 
 # Stage 2: Runtime
@@ -31,6 +33,8 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 # Enable Python 3.13 JIT
 ENV PYTHON_JIT=1
+# Add .venv/bin to PATH
+ENV PATH="/app/.venv/bin:$PATH"
 
 # Set work directory
 WORKDIR /app
@@ -45,12 +49,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Create a non-root user for security
 RUN groupadd -r kizuna && useradd -r -g kizuna kizuna
 
-# Copy wheels from builder and install
-COPY --from=builder /build/wheels /wheels
-COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir /wheels/* && \
-    rm -rf /wheels
+# Copy the virtual environment from the builder
+COPY --from=builder /app/.venv /app/.venv
 
 # Copy project files
 COPY . .
