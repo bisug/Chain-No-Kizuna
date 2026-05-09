@@ -1,7 +1,7 @@
 import time
 from typing import Optional, Tuple
 
-from aiogram import Router, types, html
+from aiogram import Router, types, html, F
 from aiogram.enums import ParseMode
 from aiogram.filters import Command
 
