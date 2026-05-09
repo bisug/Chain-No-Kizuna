@@ -10,6 +10,7 @@ from aiogram import Dispatcher
 from chainnokizuna.core.resources import init_resources, close_resources, GlobalState
 from chainnokizuna.utils.telegram import send_admin_group
 from chainnokizuna.services.words import Words
+from chainnokizuna.utils.commands import set_bot_commands
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -42,6 +43,7 @@ async def background_task_loop():
 async def startup():
     """Bot initialization hook: starts resources and background workers."""
     await init_resources()
+    await set_bot_commands(bot)
     
     # Ensure word list is loaded BEFORE bot starts accepting messages
     try:
