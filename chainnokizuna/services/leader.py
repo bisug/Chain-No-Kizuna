@@ -1,6 +1,5 @@
 import logging
 import asyncio
-import time
 from typing import Optional
 
 from chainnokizuna.core.resources import get_vk

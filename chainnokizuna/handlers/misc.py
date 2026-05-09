@@ -10,8 +10,6 @@ from chainnokizuna.core.resources import GlobalState, get_db
 from config import ADMIN_GROUP_ID, OFFICIAL_GROUP_ID, VIP, OWNER_ID, SUPPORT_GROUP, UPDATE_CHANNEL
 from chainnokizuna.filters import IsOwner
 from chainnokizuna.models import GAME_MODES
-from chainnokizuna.utils.keyboards import get_add_to_group_keyboard
-from chainnokizuna.utils.telegram import awaitable_to_coroutine
 from chainnokizuna.services.words import is_word
 from chainnokizuna.filters import IsMainBot
 from chainnokizuna.services.words import Words

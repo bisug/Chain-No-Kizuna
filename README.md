@@ -3,8 +3,8 @@
 
 **Chain No Kizuna** is a high-performance, industry-ready Telegram Word Chain game bot.
 
-[![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/downloads/release/python-3130/)
-[![aiogram 3.26.0](https://img.shields.io/badge/aiogram-3.26.0-teal.svg)](https://github.com/aiogram/aiogram)
+[![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/downloads/release/python-31313/)
+[![aiogram 3.28.0](https://img.shields.io/badge/aiogram-3.28.0-teal.svg)](https://github.com/aiogram/aiogram)
 [![Heroku Ready](https://img.shields.io/badge/deployment-Heroku--Ready-purple.svg)](https://heroku.com/deploy?template=https://github.com/bisug/Chain-No-Kizuna)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -40,7 +40,7 @@ All core game mechanics and the initial architecture are credited to the origina
 
 Compared to the original repository, this fork introduces significant architectural and functional enhancements:
 
-◈ **Modern Tech Stack**: Fully updated to **Python 3.13-slim** and **aiogram 3.26.0** for peak performance and long-term support.
+◈ **Modern Tech Stack**: Fully updated to **Python 3.13.13-slim** and **aiogram 3.28.0** for peak performance and long-term support.
 
 ◈ **Database & Cache Migration**: 
   - Integrated **MongoDB** for robust global statistics and game archives.
