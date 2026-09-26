@@ -54,7 +54,7 @@ async def cmd_start(message: types.Message) -> None:
 
 @router.message(Command("feedback"))
 async def cmd_feedback(message: types.Message, command: CommandObject) -> None:
-    if message.forward_from:  # Avoid re-triggering on forward
+    if message.forward_origin:  # Avoid re-triggering on forward
         return
 
     args = command.args

@@ -1,11 +1,15 @@
 import asyncio
 import logging
+import socket
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Optional, Any
 
 import aiohttp
-from pymongo import AsyncMongoClient, AsyncDatabase
+from pymongo import AsyncMongoClient
+# PyMongo 4.18 moved the async types out of the top-level namespace.
+from pymongo.asynchronous.database import AsyncDatabase
 import redis.asyncio as redis
+from redis.exceptions import TimeoutError as RedisTimeoutError
 from aiogram import Bot, types
 from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
@@ -125,7 +129,8 @@ async def init_resources() -> None:
                 decode_responses=True,
                 max_connections=20,
                 socket_keepalive=True,
-                retry_on_timeout=True,
+                # redis-py 6.0+ deprecated retry_on_timeout; name the errors instead.
+                retry_on_error=[RedisTimeoutError, socket.timeout, TimeoutError],
                 socket_timeout=5
             )
             await vk.ping()

@@ -17,7 +17,10 @@ router.message.filter(IsMainBot())
 @router.message(Command("stat", "stats", "stalk"))
 async def cmd_stats(message: types.Message) -> None:
     rmsg = message.reply_to_message
-    user = (rmsg.forward_from or rmsg.from_user) if rmsg else message.from_user
+    origin = rmsg.forward_origin if rmsg else None
+    # Bot API 7.0 replaced forward_from with forward_origin; only user origins expose a sender.
+    original_sender = origin.sender_user if isinstance(origin, types.MessageOriginUser) else None
+    user = original_sender or (rmsg.from_user if rmsg else None) or message.from_user
 
     name = user.full_name
     mention = user.mention_html(name=name)

@@ -1,5 +1,5 @@
 # Stage 1: Builder
-FROM python:3.13.13-slim AS builder
+FROM python:3.14.7-slim AS builder
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -26,12 +26,12 @@ RUN /uv/bin/uv sync --frozen --no-install-project --no-dev
 
 
 # Stage 2: Runtime
-FROM python:3.13.13-slim AS runtime
+FROM python:3.14.7-slim AS runtime
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-# Enable Python 3.13 JIT
+# Enable the experimental CPython JIT
 ENV PYTHON_JIT=1
 # Add .venv/bin to PATH
 ENV PATH="/app/.venv/bin:$PATH"

@@ -25,6 +25,5 @@ chainnokizuna/data/*.txt
 !chainnokizuna/data/.gitkeep
 config*.json
 
-# UV
-uv.lock
-.python-version
+# NOTE: uv.lock and .python-version are intentionally tracked. The Dockerfile
+# builds with `uv sync --frozen`, which requires a committed lockfile.

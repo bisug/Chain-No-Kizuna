@@ -34,38 +34,69 @@ def get_str(key: str, default: str = "") -> str:
     """
     return os.getenv(key, default).strip()
 
+
+def get_int(key: str, default: int = 0) -> int:
+    """
+    Retrieves an integer from environment variables, falling back to `default` when unset or blank.
+    """
+    val = os.getenv(key, "").strip()
+    return int(val) if val else default
+
+
+def get_required(key: str, *aliases: str) -> str:
+    """
+    Retrieves a value that must be supplied via the environment.
+
+    Secrets have no in-code default on purpose: a hardcoded fallback turns a
+    missing config into a silent connection to whoever committed it.
+    """
+    for name in (key, *aliases):
+        val = os.getenv(name, "").strip()
+        if val:
+            return val
+    names = " / ".join((key, *aliases))
+    raise RuntimeError(
+        f"Missing required environment variable: {names}. "
+        f"See .env.template for the full list."
+    )
+
+
 # --- Bot Tokens & Identity ---
 # Main Telegram Bot Token from @BotFather
-TOKEN: str = os.getenv("TOKEN", "REDACTED_TELEGRAM_CREDENTIAL")
+TOKEN: str = get_required("TOKEN")
 # Virtual Player Bot Token (Optional) from @BotFather
-VP_TOKEN: Optional[str] = os.getenv("VP_TOKEN", "REDACTED_TELEGRAM_CREDENTIAL")
+VP_TOKEN: Optional[str] = os.getenv("VP_TOKEN") or None
 
 # --- Database & Cache ---
 # MongoDB connection URI (e.g. from MongoDB Atlas)
-MONGO_URI: str = os.getenv("MONGO_URI") or os.getenv("MONGODB_URI") or "REDACTED_MONGODB_CREDENTIAL"
+MONGO_URI: str = get_required("MONGO_URI", "MONGODB_URI")
 # Database name for the bot
-DB_NAME: str = os.getenv("DB_NAME", "WordChainDB")
+DB_NAME: str = get_str("DB_NAME", "WordChainDB")
 # Redis/Valkey connection URL (e.g. from Upstash or redis.io)
-REDIS_URL: str = os.getenv("REDIS_URL", "REDACTED_REDIS_CREDENTIAL")
+REDIS_URL: str = get_required("REDIS_URL")
 
 # --- Administrative Configuration ---
 # Your numeric Telegram user ID from @userinfobot
-OWNER_ID: int = int(os.getenv("OWNER_ID", "7804972365"))
-# ID of the group where bot logs and reports are sent
-ADMIN_GROUP_ID: int = int(os.getenv("ADMIN_GROUP_ID", "-1003893856082"))
-# ID of your community's official game group
-OFFICIAL_GROUP_ID: int = int(os.getenv("OFFICIAL_GROUP_ID", "-1003893856082"))
-# ID of the channel for word addition announcements
-WORD_ADDITION_CHANNEL_ID: int = int(os.getenv("WORD_ADDITION_CHANNEL_ID", "-1003893856082"))
+OWNER_ID: int = int(get_required("OWNER_ID"))
+# ID of the group where bot logs and reports are sent (0 disables admin reporting)
+ADMIN_GROUP_ID: int = get_int("ADMIN_GROUP_ID")
+# ID of your community's official game group (0 disables the welcome message)
+OFFICIAL_GROUP_ID: int = get_int("OFFICIAL_GROUP_ID")
+# ID of the channel for word addition announcements (0 disables announcements)
+WORD_ADDITION_CHANNEL_ID: int = get_int("WORD_ADDITION_CHANNEL_ID")
 
 # --- Permissions & Access ---
 # Comma-separated or JSON list of VIP user IDs
 VIP: list[int] = get_list("VIP", "")
 # Comma-separated or JSON list of VIP group IDs
-VIP_GROUP: list[int] = get_list("VIP_GROUP", "-1003893856082")
+VIP_GROUP: list[int] = get_list("VIP_GROUP", "")
 
 SUPPORT_GROUP = get_str("SUPPORT_GROUP", "SuMelodyVibes")
 UPDATE_CHANNEL = get_str("UPDATE_CHANNEL", "SuMelodyVibes")
+
+# --- Logging ---
+# Log level for the bot (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+LOG_LEVEL: str = get_str("LOG_LEVEL", "INFO").upper()
 
 WORDLIST_SOURCE = "https://raw.githubusercontent.com/dwyl/english-words/master/words.txt"
 

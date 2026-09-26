@@ -39,7 +39,7 @@ async def cmd_exists(message: types.Message) -> None:
 @router.message(Command("reqaddword", "reqaddwords"))
 async def cmd_reqaddword(message: types.Message, command: CommandObject) -> None:
     """Processes user requests to add new words to the bot's dictionary."""
-    if message.forward_from:
+    if message.forward_origin:
         return
 
     args = command.args

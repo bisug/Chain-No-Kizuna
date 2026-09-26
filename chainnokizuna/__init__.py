@@ -11,10 +11,11 @@ from chainnokizuna.core.resources import init_resources, close_resources, Global
 from chainnokizuna.utils.telegram import send_admin_group
 from chainnokizuna.services.words import Words
 from chainnokizuna.utils.commands import set_bot_commands
+from config import LOG_LEVEL
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO
+    level=LOG_LEVEL
 )
 
 logger = logging.getLogger(__name__)

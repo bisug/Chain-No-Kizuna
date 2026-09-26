@@ -61,7 +61,9 @@ async def main() -> None:
                     except Exception as e:
                         logger.error(f"State restoration failed: {e}")
 
-                    await dp.start_polling(*active_bots, drop_pending_updates=True)
+                    # Pending updates are already dropped by the delete_webhook call above;
+                    # start_polling only forwards extra kwargs as handler context data.
+                    await dp.start_polling(*active_bots)
                     logger.info("Polling finished. Exiting...")
                     break
                     

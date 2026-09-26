@@ -3,8 +3,8 @@
 
 **Chain No Kizuna** is a high-performance, industry-ready Telegram Word Chain game bot.
 
-[![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/downloads/release/python-31313/)
-[![aiogram 3.28.0](https://img.shields.io/badge/aiogram-3.28.0-teal.svg)](https://github.com/aiogram/aiogram)
+[![Python 3.14](https://img.shields.io/badge/python-3.14-blue.svg)](https://www.python.org/downloads/release/python-3147/)
+[![aiogram 3.31.0](https://img.shields.io/badge/aiogram-3.31.0-teal.svg)](https://github.com/aiogram/aiogram)
 [![Heroku Ready](https://img.shields.io/badge/deployment-Heroku--Ready-purple.svg)](https://heroku.com/deploy?template=https://github.com/bisug/Chain-No-Kizuna)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -32,7 +32,7 @@ This software is built upon the excellent foundation laid by the original creato
 
 ◈ **Fork Maintainer**: [BisuG](https://github.com/bisug)
 
-All core game mechanics and the initial architecture are credited to the original repository. This fork focuses on modernizing the tech stack (Python 3.13), enhancing cloud deployment (Heroku), and optimizing word engine performance.
+All core game mechanics and the initial architecture are credited to the original repository. This fork focuses on modernizing the tech stack (Python 3.14), enhancing cloud deployment (Heroku), and optimizing word engine performance.
 
 ---
 
@@ -40,7 +40,7 @@ All core game mechanics and the initial architecture are credited to the origina
 
 Compared to the original repository, this fork introduces significant architectural and functional enhancements:
 
-◈ **Modern Tech Stack**: Fully updated to **Python 3.13.13-slim** and **aiogram 3.28.0** for peak performance and long-term support.
+◈ **Modern Tech Stack**: Fully updated to **Python 3.14.7-slim** and **aiogram 3.31.0** for peak performance and long-term support.
 
 ◈ **Database & Cache Migration**: 
   - Integrated **MongoDB** for robust global statistics and game archives.
@@ -103,7 +103,7 @@ Compared to the original repository, this fork introduces significant architectu
 
 ## | Tech Stack
 
-◈ **Runtime**: Python 3.13 (Slim)
+◈ **Runtime**: Python 3.14 (Slim)
 
 ◈ **Framework**: [aiogram 3.x](https://github.com/aiogram/aiogram) (Asynchronous Telegram API)
 
@@ -170,9 +170,11 @@ c:\Users\HP\Downloads\WORD\on9wordchainbot
 ├── .gitignore               # Files excluded from Git versioning
 ├── app.json                 # Heroku deployment manifest
 ├── Procfile                 # Heroku process configuration
-├── runtime.txt              # Python runtime version for Heroku
+├── pyproject.toml           # Project metadata & dependencies
+├── uv.lock                  # Pinned dependency lockfile (required by `uv sync --frozen`)
+├── .python-version          # Pinned CPython version for uv
 ├── .env.template            # Environment variable template
-└── requirements.txt         # Project dependencies
+└── .github/workflows/       # CI workflows
 ```
 
 ## | Frameworks & Tools
@@ -318,13 +320,15 @@ The bot is configured entirely via environment variables. Create a `.env` file i
 | Variable | Description | Required | Default |
 | :--- | :--- | :---: | :--- |
 | `TOKEN` | Main Telegram Bot Token from [@BotFather](https://t.me/BotFather) | Yes | - |
-| `MONGO_URI` | MongoDB Connection URI (Atlas or Local) | Yes | - |
+| `MONGO_URI` | MongoDB Connection URI (Atlas or Local). `MONGODB_URI` is accepted as an alias | Yes | - |
 | `REDIS_URL` | Redis/Valkey Connection URL (Upstash/Cloud) | Yes | - |
 | `OWNER_ID` | Your numeric Telegram User ID | Yes | - |
 | `VP_TOKEN` | Virtual Player (AI) Bot Token | No | - |
 | `DB_NAME` | Name of the MongoDB database | No | `WordChainDB` |
 | `ADMIN_GROUP_ID` | Group ID for administrative reports/logs | No | `0` (Disabled) |
 | `OFFICIAL_GROUP_ID` | ID of your community's official game group | No | `0` |
+| `WORD_ADDITION_CHANNEL_ID` | Channel ID for word addition announcements | No | `0` (Disabled) |
+| `LOG_LEVEL` | Logging verbosity (DEBUG, INFO, WARNING, ERROR, CRITICAL) | No | `INFO` |
 | `SUPPORT_GROUP` | Username of your Support Group (no @) | No | `SuMelodyVibes` |
 | `UPDATE_CHANNEL` | Username of your Update Channel (no @) | No | `SuMelodyVibes` |
 | `VIP` | List of VIP player user IDs (Comma-separated) | No | `[]` |
