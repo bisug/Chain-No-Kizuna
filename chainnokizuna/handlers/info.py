@@ -52,7 +52,7 @@ async def cmd_help(message: types.Message) -> None:
                 types.InlineKeyboardButton(text="Support Chat", url=f"https://t.me/{SUPPORT_GROUP}"),
             ]
         ]),
-        disable_web_page_preview=True
+        link_preview_options=types.LinkPreviewOptions(is_disabled=True)
     )
 
 
