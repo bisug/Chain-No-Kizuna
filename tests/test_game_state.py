@@ -5,7 +5,7 @@ from unittest import mock
 
 from config import GameState
 from chainnokizuna.db.redis import _get_game_class
-from chainnokizuna.models import GAME_MODES
+from chainnokizuna.models import GAME_MODES, ClassicGame
 from chainnokizuna.models.player import Player
 from tests.helpers import make_message, make_user, run
 
@@ -61,6 +61,35 @@ class TestSerializationRoundTrip(unittest.TestCase):
             with self.subTest(mode=mode.__name__):
                 data, _ = self._round_trip(mode)
                 self.assertIsNotNone(_get_game_class(data["type"]), data["type"])
+
+    def test_every_declared_slot_is_populated(self):
+        """from_dict builds the object with object.__new__, skipping __init__.
+
+        Any slot it forgets to assign stays *unset* (not None), because
+        __slots__ has no class-level default, and the first read raises
+        AttributeError. That crashed a restored game the moment its first
+        turn completed, in running_phase_tick and in answer_handler.
+        """
+        for mode in GAME_MODES:
+            with self.subTest(mode=mode.__name__):
+                _, back = self._round_trip(mode)
+                for klass in reversed(type(back).__mro__):
+                    for slot in getattr(klass, "__slots__", ()):
+                        if slot.startswith("__"):
+                            continue
+                        with self.subTest(mode=mode.__name__, slot=f"{klass.__name__}.{slot}"):
+                            # getattr, not hasattr: a default would also satisfy hasattr
+                            getattr(back, slot)
+
+    def test_allow_any_player_answer_defaults_false_for_restored_games(self):
+        """Guess the Word re-declares it as True, so only the base default is checked."""
+        _, back = self._round_trip(ClassicGame)
+        self.assertFalse(back.allow_any_player_answer)
+
+    def test_allow_any_player_answer_is_not_serialised(self):
+        """Only Guess the Word sets it True, and it re-applies that in from_dict."""
+        data, _ = self._round_trip(ClassicGame)
+        self.assertNotIn("allow_any_player_answer", data)
 
 
 class TestForcefleeNullableFromUser(unittest.TestCase):

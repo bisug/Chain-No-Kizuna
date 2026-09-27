@@ -113,6 +113,11 @@ class ClassicGame:
         game.longest_word_sender_id = data.get("longest_word_sender_id")
         game.answered = data.get("answered", False)
         game.accepting_answers = data.get("accepting_answers", False)
+        # Not serialised: only Guess the Word sets it, and it re-applies True
+        # in its own from_dict. Assigning it here keeps the slot populated,
+        # because object.__new__ skips __init__ and an unset slot raises
+        # AttributeError on the first read.
+        game.allow_any_player_answer = data.get("allow_any_player_answer", False)
         game.turns = data.get("turns", 0)
         game.used_words = set(data.get("used_words", []))
         game.extended_user_ids = set(data.get("extended_user_ids", []))
