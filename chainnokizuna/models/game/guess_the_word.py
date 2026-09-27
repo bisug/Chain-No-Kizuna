@@ -133,8 +133,11 @@ class GuessTheWordGame(ClassicGame):
                     async with aiofiles.open("chainnokizuna/data/all-five.json", "rb") as f:
                         valid_data = orjson.loads(await f.read())
                     self.dictionary = [w.lower() for w in valid_data]
-                 except Exception:
-                    pass
+                 except Exception as e:
+                    # Never swallow this: an empty dictionary rejects every guess as
+                    # "not in my 5-letter dictionary", leaving a resumed game unplayable
+                    # with no clue why.
+                    logger.error(f"Failed to load validation dictionary: {e}")
             
             if guess not in self.dictionary:
                 await message.reply(f"<i>{guess.upper()}</i> is not in my 5-letter dictionary!")
