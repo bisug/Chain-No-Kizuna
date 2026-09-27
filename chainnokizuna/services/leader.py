@@ -1,5 +1,6 @@
 import logging
 import asyncio
+import time
 from typing import Optional
 
 from chainnokizuna.core.resources import get_vk
@@ -72,6 +73,8 @@ class LeaderElection:
         self._renew_task = asyncio.create_task(self._renew_loop())
 
     async def _renew_loop(self):
+        consecutive_failures = 0
+        first_failure_at: Optional[float] = None
         while self._is_leader:
             await asyncio.sleep(self.RENEW_INTERVAL)
             try:
@@ -92,7 +95,27 @@ class LeaderElection:
                     logger.warning("Lost leadership during renewal!")
                     self._is_leader = False
                     break
+                consecutive_failures = 0
+                first_failure_at = None
             except Exception as e:
-                logger.error(f"Error renewing leadership: {e}")
-                # If we fail to renew, we might lose leadership eventually.
-                # For now, just log.
+                consecutive_failures += 1
+                now = time.monotonic()
+                if first_failure_at is None:
+                    first_failure_at = now
+                elapsed = now - first_failure_at
+                if elapsed >= self.TTL:
+                    # The lock has provably expired, so another instance may already
+                    # have taken it. Stop claiming leadership.
+                    logger.error(
+                        f"Lost leadership: could not renew for {elapsed:.1f}s "
+                        f"({consecutive_failures} consecutive failures, last error: {e}). "
+                        f"The leader lock expired {self.TTL}s ago and may now be held by "
+                        f"another instance."
+                    )
+                    self._is_leader = False
+                    break
+                logger.error(
+                    f"Error renewing leadership "
+                    f"({consecutive_failures} consecutive, {elapsed:.1f}s/{self.TTL}s "
+                    f"until the lock expires): {e}"
+                )
