@@ -23,6 +23,19 @@ jobs:
       REDIS_URL: "redis://localhost:6379/0"
       OWNER_ID: "1"
 
+    # A service container, because the ubuntu runner image no longer ships
+    # redis-server (the step failed with "redis-server: command not found").
+    services:
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
     - uses: actions/checkout@v7
 
@@ -44,10 +57,23 @@ jobs:
       # [build-system]), so `uv sync` alone is the correct install step.
       run: uv sync --frozen
 
-    - name: Start Redis for the leader-election tests
+    - name: Wait for Redis
+      # The runner image has neither redis-server nor redis-cli, so probe with
+      # the redis client that is already installed in the venv.
       run: |
-        redis-server --daemonize yes --save '' --appendonly no
-        redis-cli ping
+        uv run --no-sync python - <<'PY'
+        import time
+        import redis
+        client = redis.Redis(host="localhost", port=6379)
+        for _ in range(30):
+            try:
+                if client.ping():
+                    print("redis is ready")
+                    raise SystemExit(0)
+            except redis.exceptions.ConnectionError:
+                time.sleep(1)
+        raise SystemExit("redis did not become ready")
+        PY
 
     - name: Run test suite
       # RUN_REDIS_TESTS=1 enables the live-Redis leader-election test.
