@@ -33,7 +33,9 @@ jobs:
         python-version: "3.14"
 
     - name: Install uv
-      uses: astral-sh/setup-uv@v10
+      # setup-uv publishes only concrete tags (v10.0.0, v10.1.0, ...); there is no
+      # floating `v10`, so this must stay pinned or the job fails to resolve.
+      uses: astral-sh/setup-uv@v10.2.0
       with:
         enable-cache: true
 
