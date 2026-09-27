@@ -466,5 +466,68 @@ class TestBundledWordList(unittest.TestCase):
             self.assertIn(word, words)
 
 
+class TestWordListCleanup(unittest.TestCase):
+    """Proper nouns out, real inflections in.
+
+    The upstream list capitalises 79,394 of its entries, and the loader used to
+    lowercase everything, so "aachen" and "aaron" counted as words. It was also
+    missing 19,924 that ENABLE1 accepts, such as "absenteeisms". Both were fixed
+    by tools/build_wordlist.py; these pin the result.
+    """
+
+    def setUp(self):
+        from config import WORDLIST_FILE
+
+        with open(WORDLIST_FILE, encoding="utf-8") as f:
+            self.words = set(f.read().splitlines())
+
+    def test_proper_nouns_are_rejected(self):
+        for word in ("aaron", "aachen", "aberdeen", "abraham", "tchaikovsky", "schaumburg"):
+            self.assertNotIn(word, self.words, f"{word!r} is a name, not a word")
+
+    def test_real_inflections_are_accepted(self):
+        # The coverage gap this list had: plural and -ized/-izing forms.
+        for word in ("absenteeisms", "abdicators", "aberrances", "absolutizing", "abracadabras"):
+            self.assertIn(word, self.words, f"{word!r} is a real word")
+
+    def test_email_is_not_mistaken_for_a_proper_noun(self):
+        # dwyl spells it "Email", so a naive capitalisation filter deletes it.
+        # The repo's curated 5-letter list vetoes that removal.
+        self.assertIn("email", self.words)
+
+    def test_lowercase_lookalike_common_words_survive(self):
+        # These appear capitalised somewhere upstream but are ordinary nouns.
+        for word in ("abate", "abbey", "abbot", "absolute", "academic"):
+            self.assertIn(word, self.words, f"{word!r} is a common word")
+
+    def test_pools_contain_no_removed_words(self):
+        # The pools are what the bot actually plays from, so a proper noun there
+        # is a word it would open a game with.
+        import json
+
+        from config import WORD_POOL_FILES
+
+        for name in ("common", "five"):
+            with open(WORD_POOL_FILES[name], encoding="utf-8") as f:
+                pool = set(json.load(f))
+            self.assertTrue(pool)
+            for word in ("aaron", "aberdeen", "abraham", "aaaa"):
+                self.assertNotIn(word, pool, f"{word!r} is in the {name} pool")
+            self.assertTrue(
+                pool <= self.words,
+                f"{name} pool has words the main list does not",
+            )
+
+    def test_pools_still_hold_playable_words(self):
+        import json
+
+        from config import WORD_POOL_FILES
+
+        with open(WORD_POOL_FILES["common"], encoding="utf-8") as f:
+            common = json.load(f)
+        for word in ("apple", "orange", "piano", "house", "water"):
+            self.assertIn(word, common)
+        self.assertGreater(len(common), 5_000, "common pool shrank too far")
+
 if __name__ == "__main__":
     unittest.main()
