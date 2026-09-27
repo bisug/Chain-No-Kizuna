@@ -273,8 +273,11 @@ class GuessTheWordGame(ClassicGame):
             await self.running_initialization()
             
             # Initial save
-            from chainnokizuna.db.redis import save_game
+            from chainnokizuna.db.redis import register_active_game, save_game
             await save_game(self)
+            # Guess the Word skips the joining phase, so this is its first save
+            # and the point where the active-games membership is claimed.
+            await register_active_game(self.group_id)
 
             from chainnokizuna.utils.timer import GameTimer
             async for delta in GameTimer():

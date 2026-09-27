@@ -75,11 +75,19 @@ class TestUpdateRefusesEmptyDictionary(unittest.TestCase):
     """Drive Words.update() with stub sources so the empty-dictionary guard is exercised."""
 
     class _Cursor:
+        """Mimics AsyncCursor: supports both to_list() and async iteration."""
+
         def __init__(self, rows):
             self._rows = rows
 
         async def to_list(self, length=None):
             return self._rows
+
+        def __aiter__(self):
+            async def gen():
+                for row in self._rows:
+                    yield row
+            return gen()
 
     class _Collection:
         def __init__(self, rows):

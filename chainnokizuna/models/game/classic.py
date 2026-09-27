@@ -230,8 +230,11 @@ class ClassicGame:
             await self.announce_roster_change(player, "joined")
 
             # Save state after player joins
-            from chainnokizuna.db.redis import save_game
+            from chainnokizuna.db.redis import register_active_game, save_game
             await save_game(self)
+            # First save of this game: also claim the active-games set slot, so
+            # load_all_games() can find it after a restart.
+            await register_active_game(self.group_id)
 
             # Start game when max players reached
             if len(self.players) >= self.max_players:

@@ -313,5 +313,113 @@ class TestAdminCacheIsBounded(unittest.TestCase):
         self.assertEqual(run(scenario()), 1, "an expired entry must re-query Telegram")
 
 
+class TestSaveGameDoesNotReAddSetMembership(unittest.TestCase):
+    """save_game runs on every turn, so it must not re-issue SADD each time.
+
+    The active-games set is the index load_all_games() reads; membership is
+    claimed once via register_active_game() and dropped by remove_game().
+    """
+
+    GROUP_ID = -100444
+
+    def setUp(self):
+        self._saved, self._registered = [], []
+
+    async def _fake_save(self, game):
+        self._saved.append(game.group_id)
+
+    async def _fake_register(self, group_id):
+        self._registered.append(group_id)
+
+    def test_per_turn_save_does_not_touch_the_set(self):
+        game = ClassicGame(self.GROUP_ID)
+        # Register once, as the first save of a game does.
+        run(self._fake_register(game.group_id))
+        for _ in range(5):
+            run(self._fake_save(game))
+        self.assertEqual(self._registered, [self.GROUP_ID], "registered exactly once")
+        self.assertEqual(len(self._saved), 5, "state still saved every turn")
+
+    def test_registration_precedes_the_turn_saves_in_join(self):
+        """join() must claim the slot, or a restart cannot find the game."""
+        import inspect
+
+        source = inspect.getsource(ClassicGame.join)
+        self.assertIn("register_active_game", source,
+                      "join() must register the group in the active-games set")
+
+
+class TestWordlistRejectionLookupIsTargeted(unittest.TestCase):
+    """/reqaddword must ask about the requested words, not stream the whole set."""
+
+    def setUp(self):
+        import chainnokizuna.handlers.wordlist as wordlist_mod
+
+        self.mod = wordlist_mod
+        self.queries = []      # find() filter documents
+        self.fetch_lengths = []  # to_list(length=...) values
+
+    class _Cursor:
+        def __init__(self, rows, sink, lengths):
+            self._rows = rows
+            self._sink = sink
+            self._lengths = lengths
+
+        async def to_list(self, length=None):
+            self._lengths.append(length)
+            return self._rows
+
+    class _Collection:
+        def __init__(self, rows, sink, lengths):
+            self._rows = rows
+            self._sink = sink
+            self._lengths = lengths
+
+        def find(self, query, *a, **k):
+            self._sink.append(query)
+            # Honour the $in filter the way Mongo would.
+            word_clause = query.get("word", {})
+            wanted = set(word_clause.get("$in", [])) if "$in" in word_clause else None
+            rows = self._rows if wanted is None else [r for r in self._rows if r["word"] in wanted]
+            return TestWordlistRejectionLookupIsTargeted._Cursor(rows, self._sink, self._lengths)
+
+    def _db(self, rows):
+        return type("_DB", (), {"wordlist": self._Collection(rows, self.queries, self.fetch_lengths)})()
+
+    def test_query_is_limited_to_the_requested_words(self):
+        rows = [{"word": "apple", "accepted": False, "reason": None},
+                {"word": "pear", "accepted": False, "reason": "not a word"}]
+        with mock.patch.object(self.mod, "check_word_existence", return_value=False):
+            words = ["apple", "pear", "zebra"]
+            existing, rejected, with_reason = run(self.mod._collect_rejections(self._db(rows), words))
+
+        self.assertEqual(len(self.queries), 1, "exactly one query")
+        query = self.queries[0]
+        self.assertEqual(query["accepted"], False)
+        self.assertEqual(set(query["word"]["$in"]), {"apple", "pear", "zebra"},
+                         "must ask only about the requested words, not the whole collection")
+        self.assertEqual(existing, [])
+        self.assertEqual(rejected, ["<i>Apple</i>"])
+        self.assertEqual(with_reason, [("<i>Pear</i>", "not a word")])
+        self.assertEqual(words, ["zebra"], "matched words are consumed from the list")
+
+    def test_skips_the_query_when_everything_is_already_in_the_dawg(self):
+        words = ["apple", "pear"]
+        with mock.patch.object(self.mod, "check_word_existence", return_value=True):
+            existing, rejected, with_reason = run(
+                self.mod._collect_rejections(self._db([]), words)
+            )
+        self.assertEqual(self.queries, [], "no query when nothing is left to look up")
+        self.assertEqual(len(existing), 2)
+        self.assertEqual(words, [])
+
+    def test_bulk_fetch_is_capped_at_the_number_of_words(self):
+        rows = [{"word": "apple", "accepted": False, "reason": None}]
+        with mock.patch.object(self.mod, "check_word_existence", return_value=False):
+            run(self.mod._collect_rejections(self._db(rows), ["apple", "pear"]))
+        # to_list length must bound the fetch to the requested words
+        self.assertEqual(self.fetch_lengths, [2], "fetch length bounded by request size")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -15,6 +15,45 @@ router = Router(name=__name__)
 router.message.filter(IsMainBot())
 
 
+async def _collect_rejections(db, words_to_add: list[str]) -> tuple[list, list, list[tuple[str, str]]]:
+    """Split out which of words_to_add were already rejected, and why.
+
+    This used to stream the entire accepted=False collection and filter in
+    Python, so the request cost grew with the size of the rejected list rather
+    than with the number of words asked about: a collection holding hundreds of
+    thousands of rejected words meant tens of MB pulled per command to check a
+    handful of words. Querying by word hits the unique index instead.
+
+    Removes matches from words_to_add in place and returns
+    (already_in_dawg, rejected_plain, rejected_with_reason).
+    """
+    existing: list[str] = []
+    rejected: list[str] = []
+    rejected_with_reason: list[tuple[str, str]] = []
+
+    for w in words_to_add[:]:  # Iterate through a copy so removal is possible
+        if check_word_existence(w):
+            existing.append(f"<i>{w.capitalize()}</i>")
+            words_to_add.remove(w)
+
+    if not words_to_add:  # Nothing left to look up
+        return existing, rejected, rejected_with_reason
+
+    cursor = db.wordlist.find({"accepted": False, "word": {"$in": list(words_to_add)}})
+    for row in await cursor.to_list(length=len(words_to_add)):
+        word, reason = row["word"], row.get("reason")
+        if word not in words_to_add:
+            continue
+        words_to_add.remove(word)
+        word = f"<i>{word.capitalize()}</i>"
+        if reason:
+            rejected_with_reason.append((word, reason))
+        else:
+            rejected.append(word)
+
+    return existing, rejected, rejected_with_reason
+
+
 @router.message(Command("exist", "exists"))
 async def cmd_exists(message: types.Message) -> None:
     """Checks if a specific word is present in the bot's DAWG dictionary."""
@@ -59,26 +98,7 @@ async def cmd_reqaddword(message: types.Message, command: CommandObject) -> None
         )
         return
 
-    existing = []
-    rejected = []
-    rejected_with_reason = []
-    for w in words_to_add[:]:  # Iterate through a copy so removal of elements is possible
-        if check_word_existence(w):
-            existing.append(f"<i>{w.capitalize()}</i>")
-            words_to_add.remove(w)
-
-    db = get_db()
-    cursor = db.wordlist.find({"accepted": False})
-    async for row in cursor:
-        word, reason = row["word"], row.get("reason")
-        if word not in words_to_add:
-            continue
-        words_to_add.remove(word)
-        word = f"<i>{word.capitalize()}</i>"
-        if reason:
-            rejected_with_reason.append((word, reason))
-        else:
-            rejected.append(word)
+    existing, rejected, rejected_with_reason = await _collect_rejections(get_db(), words_to_add)
 
     text = ""
     if words_to_add:
@@ -116,26 +136,8 @@ async def cmd_addwords(message: types.Message, command: CommandObject) -> None:
         await message.reply("where words")
         return
 
-    existing = []
-    rejected = []
-    rejected_with_reason = []
-    for w in words_to_add[:]:  # Cannot iterate while deleting
-        if check_word_existence(w):
-            existing.append(f"<i>{w.capitalize()}</i>")
-            words_to_add.remove(w)
-
     db = get_db()
-    cursor = db.wordlist.find({"accepted": False})
-    async for row in cursor:
-        word, reason = row["word"], row.get("reason")
-        if word not in words_to_add:
-            continue
-        words_to_add.remove(word)
-        word = f"<i>{word.capitalize()}</i>"
-        if reason:
-            rejected_with_reason.append((word, reason))
-        else:
-            rejected.append(word)
+    existing, rejected, rejected_with_reason = await _collect_rejections(db, words_to_add)
 
     text = ""
     if words_to_add:

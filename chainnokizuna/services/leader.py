@@ -114,8 +114,13 @@ class LeaderElection:
                     )
                     self._is_leader = False
                     break
-                logger.error(
-                    f"Error renewing leadership "
-                    f"({consecutive_failures} consecutive, {elapsed:.1f}s/{self.TTL}s "
-                    f"until the lock expires): {e}"
-                )
+                # A Redis outage makes this fire every RENEW_INTERVAL for up to
+                # TTL seconds, per instance, forever. Log the first few and then
+                # throttle so one outage cannot flood the log; the give-up path
+                # above is unchanged and still logs exactly once.
+                if consecutive_failures <= 3 or consecutive_failures % 12 == 0:
+                    logger.error(
+                        f"Error renewing leadership "
+                        f"({consecutive_failures} consecutive, {elapsed:.1f}s/{self.TTL}s "
+                        f"until the lock expires): {e}"
+                    )

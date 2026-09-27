@@ -116,5 +116,84 @@ class TestAgainstLiveRedis(unittest.TestCase):
         asyncio.run(scenario())
 
 
+class TestRenewalLoggingIsThrottled(unittest.TestCase):
+    """A Redis outage must not emit one error line per renewal attempt, per instance.
+
+    RENEW_INTERVAL is 5s, so an unthrottled loop logs once per attempt for as
+    long as the outage lasts, on every instance. The give-up path must still
+    log, and the first few failures must still be visible.
+    """
+
+    MAX_ATTEMPTS = 50
+
+    def _run_with_failing_redis(self, attempts):
+        """Drive _renew_loop for a fixed number of failing attempts."""
+        class _Stop(Exception):
+            pass
+
+        election = LeaderElection(bot_id="throttle")
+        election._is_leader = True
+        election.TTL = 10_000  # effectively never expires, so only throttling applies
+
+        async def scenario():
+            redis = mock.AsyncMock()
+            redis.eval.side_effect = RuntimeError("connection reset")
+            seen = []
+
+            async def fake_sleep(_delay):
+                seen.append(1)
+                if len(seen) >= attempts:
+                    raise _Stop
+
+            with mock.patch.object(leader_mod, "get_vk", return_value=redis), \
+                 mock.patch.object(leader_mod.asyncio, "sleep", new=fake_sleep):
+                await leader_mod.LeaderElection._renew_loop(election)
+            return seen
+
+        with self.assertLogs(leader_mod.logger, level="ERROR") as captured:
+            with self.assertRaises(_Stop):
+                asyncio.run(scenario())
+        return captured.output
+
+    def test_logging_is_throttled_below_one_line_per_attempt(self):
+        lines = self._run_with_failing_redis(self.MAX_ATTEMPTS)
+        self.assertLessEqual(
+            len(lines), 8,
+            f"{self.MAX_ATTEMPTS} attempts produced {len(lines)} log lines; expected throttling",
+        )
+
+    def test_first_failures_are_still_logged(self):
+        # The loop sleeps before evaluating, so N sleeps yield N-1 logged
+        # failures; what matters is that the early ones are not suppressed.
+        lines = self._run_with_failing_redis(4)
+        self.assertGreaterEqual(len(lines), 3, "the first few failures must remain visible")
+        self.assertTrue(
+            all("Error renewing leadership" in line for line in lines),
+            f"expected only throttle-path lines, got {lines}",
+        )
+
+    def test_giving_up_still_logs_exactly_once(self):
+        class _Stop(Exception):
+            pass
+
+        election = LeaderElection(bot_id="give-up")
+        election._is_leader = True
+        election.TTL = 0  # any failure exceeds the TTL, so it gives up at once
+
+        async def scenario():
+            redis = mock.AsyncMock()
+            redis.eval.side_effect = RuntimeError("connection reset")
+            with mock.patch.object(leader_mod, "get_vk", return_value=redis), \
+                 mock.patch.object(leader_mod.asyncio, "sleep", new=mock.AsyncMock()):
+                await leader_mod.LeaderElection._renew_loop(election)
+
+        with self.assertLogs(leader_mod.logger, level="ERROR") as captured:
+            asyncio.run(scenario())
+
+        self.assertEqual(len(captured.output), 1, "losing leadership must log once")
+        self.assertIn("Lost leadership", captured.output[0])
+        self.assertFalse(election.is_leader, "must stop claiming leadership")
+
+
 if __name__ == "__main__":
     unittest.main()

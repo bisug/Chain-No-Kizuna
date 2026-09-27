@@ -107,8 +107,14 @@ async def init_resources() -> None:
     try:
         mongo_client = AsyncMongoClient(
             MONGO_URI,
-            maxPoolSize=50,
-            minPoolSize=10,
+            # Sized for concurrent game-end writes (update_db issues two ops per
+            # finished game) rather than left at a default that would queue them.
+            # minPoolSize is kept small: the bot is idle most of the time, and
+            # pre-opening sockets costs connections on a constrained tier.
+            maxPoolSize=100,
+            minPoolSize=2,
+            maxIdleTimeMS=60_000,
+            waitQueueTimeoutMS=10_000,
             retryWrites=True,
             serverSelectionTimeoutMS=5000
         )
@@ -127,11 +133,16 @@ async def init_resources() -> None:
             vk = redis.from_url(
                 REDIS_URL,
                 decode_responses=True,
-                max_connections=20,
+                # Every turn of every game writes state, so a small pool becomes
+                # a queue under load. Sized above the expected concurrent games
+                # rather than the previous 20.
+                max_connections=100,
                 socket_keepalive=True,
                 # redis-py 6.0+ deprecated retry_on_timeout; name the errors instead.
                 retry_on_error=[RedisTimeoutError, socket.timeout, TimeoutError],
-                socket_timeout=5
+                socket_connect_timeout=5,
+                socket_timeout=5,
+                health_check_interval=30,
             )
             await vk.ping()
             logger.info("Redis connected.")

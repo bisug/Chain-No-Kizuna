@@ -67,8 +67,14 @@ class Words:
 
         async def get_words_from_db() -> list[str]:
             db = get_db()
-            cursor = db.wordlist.find({"accepted": True}, {"word": 1})
-            return [row["word"] for row in await cursor.to_list(length=None)]
+            cursor = db.wordlist.find({"accepted": True}, {"word": 1, "_id": 0})
+            # Stream rather than to_list(length=None): the accepted wordlist is
+            # the largest collection the bot holds, and materialising it all
+            # only to copy it again in set() roughly tripled peak memory.
+            words: list[str] = []
+            async for row in cursor:
+                words.append(row["word"])
+            return words
 
         source_task = asyncio.create_task(get_words_from_source())
         db_task = asyncio.create_task(get_words_from_db())

@@ -66,39 +66,48 @@ async def cmd_stats(message: types.Message) -> None:
 @send_groups_only_message
 async def cmd_groupstats(message: types.Message) -> None:
     db = get_db()
-    pipeline = [
+
+    # Game count is a plain $count, and player count a distinct on the indexed
+    # sub-field, rather than one pipeline that built a set of every game _id and
+    # every participant id just to $size them. Those sets grow without bound
+    # with the group's history, so a busy group could allocate tens of MB per
+    # request to produce four integers.
+    game_cursor = db.games.aggregate([
+        {"$match": {"group_id": message.chat.id}},
+        {"$count": "game_cnt"},
+    ])
+    game_list = await game_cursor.to_list(length=1)
+
+    if not game_list:
+        await message.reply("No games have been played in this group yet.")
+        return
+
+    player_cursor = db.games.aggregate([
         {"$match": {"group_id": message.chat.id}},
         {"$unwind": "$participants"},
         {"$group": {
-            "_id": "$group_id",
+            "_id": None,
             "player_cnt": {"$addToSet": "$participants.user_id"},
-            "game_cnt": {"$addToSet": "$_id"},
             "word_cnt": {"$sum": "$participants.word_count"},
-            "letter_cnt": {"$sum": "$participants.letter_count"}
+            "letter_cnt": {"$sum": "$participants.letter_count"},
         }},
         {"$project": {
             "player_cnt": {"$size": "$player_cnt"},
-            "game_cnt": {"$size": "$game_cnt"},
             "word_cnt": 1,
-            "letter_cnt": 1
-        }}
-    ]
-    
-    res_cursor = db.games.aggregate(pipeline)
-    res_list = await res_cursor.to_list(length=1)
-    
-    if not res_list:
-        await message.reply("No games have been played in this group yet.")
-        return
-    
-    res = res_list[0]
+            "letter_cnt": 1,
+        }},
+    ])
+    player_list = await player_cursor.to_list(length=1)
+    res = player_list[0] if player_list else {}
+    game_cnt = game_list[0]["game_cnt"]
+
     await message.reply(
         (
             f"\U0001f4ca Statistics for <b>{html.quote(message.chat.title)}</b>\n"
-            f"<b>{res['player_cnt']}</b> players\n"
-            f"<b>{res['game_cnt']}</b> games played\n"
-            f"<b>{res['word_cnt']}</b> total words played\n"
-            f"<b>{res['letter_cnt']}</b> total letters played"
+            f"<b>{res.get('player_cnt', 0)}</b> players\n"
+            f"<b>{game_cnt}</b> games played\n"
+            f"<b>{res.get('word_cnt', 0)}</b> total words played\n"
+            f"<b>{res.get('letter_cnt', 0)}</b> total letters played"
         ),
         parse_mode=ParseMode.HTML
     )
