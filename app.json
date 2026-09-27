@@ -26,7 +26,7 @@
       "required": true
     },
     "REDIS_URL": {
-      "description": "Redis connection URL (e.g., redis://default:pass@host:port)",
+      "description": "Redis connection URL (Get from Upstash or redis.io)",
       "required": true
     },
     "SUPPORT_GROUP": {
