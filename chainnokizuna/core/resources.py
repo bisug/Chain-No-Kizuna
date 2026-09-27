@@ -165,6 +165,11 @@ async def ensure_indexes() -> None:
 async def close_resources() -> None:
     """Gracefully closes all open database and network connections."""
     global session, mongo_client, vk
+    # The Bot objects own their own aiohttp sessions. start_polling closes them on the
+    # normal path, but not when startup fails before polling is reached.
+    for b in (bot, vp_bot):
+        if b is not None:
+            await b.session.close()
     if session:
         await session.close()
     if mongo_client:
