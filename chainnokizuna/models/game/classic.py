@@ -564,8 +564,51 @@ class ClassicGame:
                 )
         await self.send_message(text)
 
+    async def pick_starting_word(self, **kwargs) -> Optional[str]:
+        """Chooses the opening word, relaxing constraints if nothing matches.
+
+        get_random_word() returns None when every candidate is filtered out,
+        which happens for a small or curated word list: the banned-letters
+        mode bans 2-4 letters before picking, and the required-letter mode
+        demands a letter that may not appear in any word long enough. A None
+        here would propagate into every mode's announcement, which
+        dereferences current_word and crashes the game.
+
+        So retry unfiltered, then at a lower length, and only give up if the
+        dictionary really is unusable. Callers still receive Optional[str];
+        this narrows the None case rather than pretending it cannot happen.
+        """
+        word = await get_random_word_async(**kwargs)
+        if word is not None:
+            return word
+
+        logger.info(
+            "No word matched %s in group %s; retrying with relaxed constraints.",
+            kwargs, self.group_id,
+        )
+        word = await get_random_word_async(min_len=1)
+        if word is not None:
+            return word
+
+        # The dictionary itself is empty or unusable; leave current_word unset
+        # rather than inventing a word, and let the caller report it.
+        return None
+
+    def require_starting_word(self, word: Optional[str]) -> str:
+        """Returns word, or aborts the game cleanly if no word could be picked.
+
+        Raising ValueError is handled by the game loops, which tear the game
+        down and tell the group, instead of letting a NoneType dereference
+        surface as an unexplained AttributeError.
+        """
+        if not word:
+            raise ValueError("No usable word available to start this game mode.")
+        return word
+
     async def running_initialization(self) -> None:
-        self.current_word = await get_random_word_async(min_len=self.min_letters_limit)
+        self.current_word = self.require_starting_word(
+            await self.pick_starting_word(min_len=self.min_letters_limit)
+        )
         self.used_words.add(self.current_word)
         self.start_time = datetime.now(timezone.utc).replace(microsecond=0)
 

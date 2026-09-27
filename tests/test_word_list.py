@@ -10,6 +10,7 @@ from unittest import mock
 
 from dawg import CompletionDAWG
 
+from config import GameState
 from chainnokizuna.models import GAME_MODES
 from chainnokizuna.models.game.classic import ClassicGame
 from chainnokizuna.models.game.chosen_first_letter import ChosenFirstLetterGame
@@ -267,6 +268,81 @@ class TestAsyncWordPicker(unittest.TestCase):
                 with mock.patch.object(type(game), "send_message", new=mock.AsyncMock()):
                     run(game.running_initialization())
                 self.assertIsNotNone(game.current_word)
+
+
+class TestStartingWordNeverLeftUnset(unittest.TestCase):
+    """A filtered pick that matches nothing must not crash the game.
+
+    get_random_word() returns None when every candidate is filtered out, and
+    each mode's announcement dereferences current_word. Banned letters bans
+    2-4 letters *before* picking, so on a small or curated list the ban can
+    exclude everything: 21 of 200 attempts failed on an 8-word fixture.
+    """
+
+    def setUp(self):
+        self._dawg, self._count = Words.dawg, Words.count
+        Words.dawg = CompletionDAWG([
+            "apple", "banana", "pear", "zebra",
+            "extraordinary", "communication", "understanding", "professional",
+        ])
+        Words.count = 8
+
+    def tearDown(self):
+        Words.dawg, Words.count = self._dawg, self._count
+
+    def test_pick_relaxes_constraints_and_still_returns_a_word(self):
+        from chainnokizuna.models.game.banned_letters import BannedLettersGame
+
+        game = BannedLettersGame(-1006661)
+        game.set_banned_letters()
+        # Guarantee the ban excludes everything in the fixture.
+        game.banned_letters = ["a", "b", "c", "e", "r", "p", "z", "o", "n", "u"]
+        word = run(game.pick_starting_word(min_len=3, banned_letters=game.banned_letters))
+        self.assertIsNotNone(word, "must relax the constraints rather than return None")
+        self.assertIn(word, Words.dawg)
+
+    def test_require_starting_word_rejects_none(self):
+        from chainnokizuna.models.game.classic import ClassicGame
+
+        game = ClassicGame(-1006662)
+        with self.assertRaises(ValueError):
+            game.require_starting_word(None)
+        self.assertEqual(game.require_starting_word("apple"), "apple")
+
+    def test_banned_letters_mode_never_crashes_on_a_small_dictionary(self):
+        import random
+
+        from chainnokizuna.models.game.banned_letters import BannedLettersGame
+        from chainnokizuna.models.player import Player
+
+        random.seed(1)  # deterministic bans
+        player = Player(make_user(user_id=1, name="A"))
+
+        for i in range(40):
+            with self.subTest(attempt=i):
+                game = BannedLettersGame(-1006663)
+                game.players = [player] * 2
+                game.players_in_game = [player] * 2
+                game.state = GameState.RUNNING
+                with mock.patch.object(type(game), "send_message", new=mock.AsyncMock()):
+                    run(game.running_initialization())
+                self.assertIsNotNone(game.current_word)
+
+    def test_empty_dictionary_raises_a_clear_error_not_attributeerror(self):
+        from chainnokizuna.models.game.classic import ClassicGame
+        from chainnokizuna.models.player import Player
+
+        Words.dawg = CompletionDAWG()
+        Words.count = 0
+
+        game = ClassicGame(-1006664)
+        game.players = [Player(make_user())] * 2
+        game.players_in_game = game.players
+        game.state = GameState.RUNNING
+        with mock.patch.object(type(game), "send_message", new=mock.AsyncMock()):
+            with self.assertRaises(ValueError) as ctx:
+                run(game.running_initialization())
+        self.assertIn("word", str(ctx.exception).lower())
 
 
 if __name__ == "__main__":

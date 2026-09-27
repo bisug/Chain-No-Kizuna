@@ -10,7 +10,7 @@ from chainnokizuna.models.game.chosen_first_letter import ChosenFirstLetterGame
 from chainnokizuna.models.game.classic import ClassicGame
 from chainnokizuna.models.game import EliminationGame
 from chainnokizuna.models.game.required_letter import RequiredLetterGame
-from chainnokizuna.services.words import check_word_existence, get_random_word, get_random_word_async
+from chainnokizuna.services.words import check_word_existence, get_random_word
 
 
 class MixedEliminationGame(EliminationGame):
@@ -129,13 +129,17 @@ class MixedEliminationGame(EliminationGame):
 
         if self.game_mode is BannedLettersGame:
             BannedLettersGame.set_banned_letters(self)
-            self.current_word = await get_random_word_async(banned_letters=self.banned_letters)
+            self.current_word = self.require_starting_word(
+                await self.pick_starting_word(banned_letters=self.banned_letters)
+            )
         elif self.game_mode is ChosenFirstLetterGame:
             # Ensure uniform probability of each letter as the starting letter
             # Prefixed, so ~0.1ms; stays synchronous to keep this branch inline.
             self.current_word = get_random_word(prefix=random.choice(ascii_lowercase))
         else:
-            self.current_word = await get_random_word_async()
+            self.current_word = self.require_starting_word(
+                await self.pick_starting_word()
+            )
         if self.game_mode is RequiredLetterGame:
             RequiredLetterGame.change_required_letter(self)
         self.used_words.add(self.current_word)

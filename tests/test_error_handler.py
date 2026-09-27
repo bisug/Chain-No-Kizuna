@@ -4,6 +4,7 @@ Before the fix, send_admin_group() returning None was dereferenced, so the
 handler raised AttributeError before it could mark the game KILLGAME, and the
 original error was masked.
 """
+import datetime
 import unittest
 from unittest import mock
 
@@ -153,6 +154,109 @@ class TestMigrateChatReKeysPersistedState(unittest.TestCase):
         moved.assert_not_awaited()
         # Historical records are still re-pointed.
         db.games.update_many.assert_awaited_once()
+
+
+class TestErrorHandlerNeverMasksTheRealError(unittest.TestCase):
+    """The handler must not replace a real failure with one of its own."""
+
+    def setUp(self):
+        GlobalState.games.clear()
+
+    def tearDown(self):
+        GlobalState.games.clear()
+
+    def _callback_update(self):
+        return types.Update(update_id=9, callback_query=types.CallbackQuery(
+            id="q", from_user=types.User(id=1, is_bot=False, first_name="U"),
+            chat_instance="ci", data="d"))
+
+    def test_migrate_error_without_a_message_keeps_the_original_exception(self):
+        from aiogram.exceptions import TelegramMigrateToChat
+
+        async def scenario():
+            with mock.patch.object(errors, "migrate_chat", new=mock.AsyncMock()) as migrate, \
+                 mock.patch.object(errors, "send_admin_group", new=mock.AsyncMock(return_value=None)):
+                await errors.error_handler(types.ErrorEvent(
+                    update=self._callback_update(),
+                    exception=TelegramMigrateToChat(method=None, message="m", migrate_to_chat_id=-9),
+                ))
+            return migrate
+
+        with self.assertRaises(TelegramMigrateToChat):
+            # The original exception must reach the dispatcher, not an
+            # AttributeError from dereferencing a missing update.message.
+            run(scenario())
+
+    def test_admin_report_failure_does_not_mask_the_original_error(self):
+        async def scenario():
+            with mock.patch.object(errors, "send_admin_group",
+                                   new=mock.AsyncMock(side_effect=RuntimeError("reporting down"))):
+                await errors.error_handler(types.ErrorEvent(
+                    update=self._callback_update(), exception=ValueError("the real one")))
+
+        with self.assertRaises(ValueError) as ctx:
+            run(scenario())
+        self.assertIn("the real one", str(ctx.exception))
+
+    def test_every_update_shape_is_reported_and_logged_locally(self):
+        """update=None previously fell into `else: pass` and vanished entirely."""
+        import logging
+
+        message = types.Message(
+            message_id=1, date=datetime.datetime.now(),
+            chat=types.Chat(id=-1009, type="supergroup"),
+            from_user=types.User(id=1, is_bot=False, first_name="U"), text="x",
+        )
+        shapes = {
+            "message": types.Update(update_id=1, message=message),
+            "edited_message": types.Update(update_id=2, edited_message=message),
+            "callback_query": self._callback_update(),
+            "inline_query": types.Update(update_id=3, inline_query=types.InlineQuery(
+                id="i", from_user=types.User(id=1, is_bot=False, first_name="U"),
+                query="q", offset="")),
+        }
+        for name, update in shapes.items():
+            with self.subTest(update=name):
+                reported = []
+                handler = logging.Handler()
+                handler.emit = lambda rec: reported.append(rec.getMessage())
+                errors.logger.addHandler(handler)
+                try:
+                    async def scenario():
+                        with mock.patch.object(
+                            errors, "send_admin_group",
+                            new=mock.AsyncMock(side_effect=lambda *a, **k: reported.append(a) or None),
+                        ):
+                            await errors.error_handler(
+                                types.ErrorEvent(update=update, exception=RuntimeError("boom")))
+                    with self.assertRaises(RuntimeError):
+                        run(scenario())
+                finally:
+                    errors.logger.removeHandler(handler)
+                self.assertTrue(reported, f"{name} produced no report at all")
+
+    def test_game_removal_does_not_raise_if_the_loop_already_removed_it(self):
+        group_id = -1009998888
+        message = types.Message(
+            message_id=1, date=datetime.datetime.now(),
+            chat=types.Chat(id=group_id, type="supergroup"),
+            from_user=types.User(id=1, is_bot=False, first_name="U"), text="x",
+        )
+        game = ClassicGame(group_id)
+        GlobalState.games[group_id] = game
+
+        async def scenario():
+            # Simulate the game loop tearing the game down during the 2s wait.
+            async def drop_sleep(_):
+                GlobalState.games.pop(group_id, None)
+            with mock.patch.object(errors, "send_admin_group", new=mock.AsyncMock(return_value=None)), \
+                 mock.patch.object(errors.asyncio, "sleep", new=drop_sleep):
+                await errors.error_handler(types.ErrorEvent(
+                    update=types.Update(update_id=1, message=message),
+                    exception=RuntimeError("boom")))
+
+        with self.assertRaises(RuntimeError):
+            run(scenario())  # original error, not KeyError
 
 
 if __name__ == "__main__":
