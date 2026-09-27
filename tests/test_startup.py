@@ -16,7 +16,6 @@ class TestCloseResourcesIsComplete(unittest.TestCase):
 
     def test_closes_bot_sessions(self):
         with mock.patch.object(resources.bot.session, "close", new=mock.AsyncMock()) as main_close, \
-             mock.patch.object(resources, "session", None), \
              mock.patch.object(resources, "mongo_client", None), \
              mock.patch.object(resources, "vk", None):
             run(close_resources())
@@ -29,7 +28,6 @@ class TestCloseResourcesIsComplete(unittest.TestCase):
         fake_vp.session.close = mock.AsyncMock()
         with mock.patch.object(resources, "bot", fake_main), \
              mock.patch.object(resources, "vp_bot", fake_vp), \
-             mock.patch.object(resources, "session", None), \
              mock.patch.object(resources, "mongo_client", None), \
              mock.patch.object(resources, "vk", None):
             run(close_resources())
@@ -40,7 +38,6 @@ class TestCloseResourcesIsComplete(unittest.TestCase):
         fake_bot = mock.MagicMock()
         fake_bot.session.close = mock.AsyncMock()
         with mock.patch.object(resources, "bot", fake_bot), \
-             mock.patch.object(resources, "session", None), \
              mock.patch.object(resources, "mongo_client", None), \
              mock.patch.object(resources, "vk", None), \
              mock.patch.object(resources, "vp_bot", None):

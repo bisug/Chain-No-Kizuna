@@ -5,6 +5,8 @@ assigned it to current_word and immediately called .capitalize() or [-1], so an
 empty dictionary crashed 8 of the 10 game modes.
 """
 import asyncio
+import os
+import tempfile
 import unittest
 from unittest import mock
 
@@ -101,38 +103,27 @@ class TestUpdateRefusesEmptyDictionary(unittest.TestCase):
         def __init__(self, rows):
             self.wordlist = TestUpdateRefusesEmptyDictionary._Collection(rows)
 
-    class _Response:
-        def __init__(self, text, status):
-            self._text, self.status = text, status
-
-        async def text(self):
-            return self._text
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *a):
-            return False
-
-    class _Session:
-        def __init__(self, text, status=200):
-            self._text, self._status = text, status
-
-        def get(self, url):
-            return TestUpdateRefusesEmptyDictionary._Response(self._text, self._status)
-
     def setUp(self):
         self._dawg, self._count = Words.dawg, Words.count
 
     def tearDown(self):
         Words.dawg, Words.count = self._dawg, self._count
 
-    def _run_update(self, source_text, db_rows, status=200):
+    def _run_update(self, file_text, db_rows, file_present=True):
+        """Drive Words.update() with a temp word list and a stub DB.
+
+        The list is a real file on disk now rather than an HTTP response, so the
+        tests point WORDLIST_FILE at a temp path instead of stubbing a session.
+        """
         async def invoke():
-            session = self._Session(source_text, status)
-            with mock.patch.object(words_mod, "get_session", return_value=session), \
-                 mock.patch.object(words_mod, "get_db", return_value=self._DB(db_rows)):
-                await Words.update()
+            with tempfile.TemporaryDirectory() as tmp:
+                path = os.path.join(tmp, "wordlist.txt")
+                if file_present:
+                    with open(path, "w", encoding="utf-8") as f:
+                        f.write(file_text)
+                with mock.patch.object(words_mod, "WORDLIST_FILE", path), \
+                     mock.patch.object(words_mod, "get_db", return_value=self._DB(db_rows)):
+                    await Words.update()
 
         return run(invoke())
 
@@ -141,22 +132,31 @@ class TestUpdateRefusesEmptyDictionary(unittest.TestCase):
             self._run_update("", [])
         self.assertIn("empty", str(ctx.exception).lower())
 
-    def test_source_words_produce_a_populated_dawg(self):
+    def test_missing_file_and_no_db_words_raises(self):
+        # Nothing left to fall back on, so this must fail loudly rather than
+        # start a bot whose every game mode picks no word.
+        with self.assertRaises(ValueError) as ctx:
+            self._run_update("", [], file_present=False)
+        self.assertIn("empty", str(ctx.exception).lower())
+
+    def test_file_words_produce_a_populated_dawg(self):
         self._run_update("apple\nbanana\ncherry", [])
         self.assertEqual(Words.count, 3)
         self.assertIn("apple", Words.dawg)
         self.assertIsNotNone(words_mod.get_random_word())
 
-    def test_db_words_are_used_when_the_source_is_unavailable(self):
-        # A failed source fetch falls back to DB words; the dictionary must still load.
-        self._run_update("", [{"word": "mango"}])
+    def test_db_words_are_used_when_the_file_is_missing(self):
+        # The bundled list is the primary source, but user-approved words live in
+        # Mongo; a missing file must not leave the bot with no dictionary at all.
+        self._run_update("", [{"word": "mango"}], file_present=False)
         self.assertEqual(Words.count, 1)
         self.assertIn("mango", Words.dawg)
 
-    def test_non_200_source_still_falls_back_to_db_words(self):
-        self._run_update("ignored", [{"word": "pear"}], status=500)
-        self.assertEqual(Words.count, 1)
-        self.assertIn("pear", Words.dawg)
+    def test_db_words_are_merged_with_the_file(self):
+        self._run_update("apple\nbanana", [{"word": "mango"}])
+        self.assertEqual(Words.count, 3)
+        for word in ("apple", "banana", "mango"):
+            self.assertIn(word, Words.dawg)
 
     def test_non_alpha_words_are_filtered_out(self):
         self._run_update("apple\n123\nbanana", [])
@@ -416,6 +416,54 @@ class TestWordPools(unittest.TestCase):
                     pool is None or pool == "general" or pool in WORD_POOL_FILES,
                     f"{mode.__name__} names unknown pool {pool!r}",
                 )
+
+
+class TestBundledWordList(unittest.TestCase):
+    """The word list is committed, so a bad edit breaks the bot at startup.
+
+    Nothing downloads it any more, which removes the network failure mode but
+    makes the committed file the single point of failure. These guard the
+    properties the loader depends on.
+    """
+
+    def setUp(self):
+        from config import WORDLIST_FILE
+
+        self.path = WORDLIST_FILE
+        self.assertTrue(os.path.isfile(self.path), f"{self.path} is missing")
+
+    def test_file_is_not_gitignored(self):
+        # .gitignore excludes data/*.txt for runtime caches. If the word list is
+        # ever caught by that rule it works locally and 404s in production.
+        import subprocess
+
+        out = subprocess.run(
+            ["git", "check-ignore", self.path],
+            capture_output=True, text=True, cwd=os.path.dirname(os.path.dirname(__file__)),
+        )
+        self.assertNotEqual(
+            out.returncode, 0,
+            f"{self.path} is gitignored, so it will never be committed",
+        )
+
+    def test_contents_are_lowercase_alphabetic_one_per_line(self):
+        with open(self.path, encoding="utf-8") as f:
+            lines = f.read().splitlines()
+        self.assertGreater(len(lines), 100_000, "word list looks truncated")
+        self.assertEqual(lines, sorted(lines), "word list should be sorted")
+        bad = [w for w in lines if not w.isalpha() or not w.islower()]
+        self.assertEqual(bad[:5], [], f"non-lowercase-alphabetic entries: {bad[:5]}")
+
+    def test_no_duplicate_entries(self):
+        with open(self.path, encoding="utf-8") as f:
+            lines = f.read().splitlines()
+        self.assertEqual(len(lines), len(set(lines)), "word list has duplicates")
+
+    def test_ordinary_english_words_are_present(self):
+        with open(self.path, encoding="utf-8") as f:
+            words = set(f.read().splitlines())
+        for word in ("apple", "banana", "orange", "piano", "zebra"):
+            self.assertIn(word, words)
 
 
 if __name__ == "__main__":

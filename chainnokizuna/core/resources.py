@@ -4,7 +4,6 @@ import socket
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Optional, Any
 
-import aiohttp
 from pymongo import AsyncMongoClient
 # PyMongo 4.18 moved the async types out of the top-level namespace.
 from pymongo.asynchronous.database import AsyncDatabase
@@ -55,16 +54,8 @@ vp_bot: Optional[Bot] = Bot(
 ) if VP_TOKEN else None
 
 
-session: Optional[aiohttp.ClientSession] = None
 mongo_client: Optional[AsyncMongoClient] = None
 vk: Optional[redis.Redis] = None
-
-
-def get_session() -> aiohttp.ClientSession:
-    """Returns the global aiohttp ClientSession."""
-    if session is None:
-        raise RuntimeError("session is not initialized!")
-    return session
 
 
 def get_db() -> AsyncDatabase[dict[str, Any]]:
@@ -83,15 +74,13 @@ def get_vk() -> redis.Redis:
 
 async def init_resources() -> None:
     """
-    Initializes global connections to MongoDB, Redis, and HTTP session.
+    Initializes global connections to MongoDB and Redis.
     Also fetches bot identity information from Telegram.
     """
-    global session, mongo_client, vk
+    global mongo_client, vk
 
-    if session is not None:
+    if mongo_client is not None:
         return
-
-    session = aiohttp.ClientSession()
 
     GlobalState.bot_user = await bot.get_me()
     if vp_bot:
@@ -170,14 +159,12 @@ async def ensure_indexes() -> None:
 
 async def close_resources() -> None:
     """Gracefully closes all open database and network connections."""
-    global session, mongo_client, vk
+    global mongo_client, vk
     # The Bot objects own their own aiohttp sessions. start_polling closes them on the
     # normal path, but not when startup fails before polling is reached.
     for b in (bot, vp_bot):
         if b is not None:
             await b.session.close()
-    if session:
-        await session.close()
     if mongo_client:
         mongo_client.close()
     if vk:

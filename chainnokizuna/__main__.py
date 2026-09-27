@@ -23,17 +23,17 @@ logger = logging.getLogger(__name__)
 async def main() -> None:
     """
     Orchestrates bot startup:
-    1. Initializes shared resources (DB, Redis, HTTP session).
+    1. Initializes shared resources (DB, Redis).
     2. Enters a leader election loop to ensure only one master instance polls Telegram.
     3. Restores active games from persistence on takeover.
     """
     try:
         await init_resources()
     except Exception:
-        # init_resources() creates the aiohttp sessions before it can fail, and the
-        # cleanup below only runs once the polling loop has been entered. Without this
-        # a bad token or an unreachable Mongo leaks both sessions and buries the real
-        # error under asyncio "Unclosed client session" warnings.
+        # The Bot objects own aiohttp sessions, created before init_resources() can
+        # fail, and the cleanup below only runs once the polling loop is entered.
+        # Without this a bad token or an unreachable Mongo leaks both sessions and
+        # buries the real error under asyncio "Unclosed client session" warnings.
         await close_resources()
         raise
 

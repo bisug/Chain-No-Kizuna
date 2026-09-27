@@ -8,8 +8,8 @@ from typing import Optional
 import orjson
 from dawg import CompletionDAWG
 
-from config import WORDLIST_SOURCE, WORD_POOL_FILES
-from chainnokizuna.core.resources import get_db, get_session
+from config import WORDLIST_FILE, WORD_POOL_FILES
+from chainnokizuna.core.resources import get_db
 
 logger = logging.getLogger(__name__)
 
@@ -34,44 +34,19 @@ class Words:
     @staticmethod
     async def update() -> None:
         """
-        Refreshes the word list by fetching from a remote text source and the MongoDB database.
+        Refreshes the word list from the bundled file and the MongoDB database.
         Rebuilds the DAWG in a separate executor thread to avoid blocking the event loop.
         """
         logger.info("Retrieving words")
 
-        async def get_words_from_source() -> list[str]:
-            session = get_session()
+        async def get_words_from_file() -> list[str]:
             try:
-                async with session.get(WORDLIST_SOURCE) as resp:
-                    if resp.status == 200:
-                        text = await resp.text()
-                        # Cache the words
-                        try:
-                            import os
-                            os.makedirs("chainnokizuna/data", exist_ok=True)
-                            async with aiofiles.open("chainnokizuna/data/words.txt", "w", encoding="utf-8") as f:
-                                await f.write(text)
-                        except Exception as e:
-                            logger.error(f"Failed to write cache: {e}")
-                        return text.splitlines()
-                    else:
-                        logger.warning(f"Failed to fetch words from source: {resp.status}")
-            except Exception as e:
-                logger.error(f"Error fetching words from source: {e}")
-            
-            # Fallback to local cache
-            try:
-                import os
-                if os.path.exists("chainnokizuna/data/words.txt"):
-                    async with aiofiles.open("chainnokizuna/data/words.txt", "r", encoding="utf-8") as f:
-                        logger.info("Loading words from local cache.")
-                        content = await f.read()
-                        return content.splitlines()
-                else:
-                    logger.error("No local wordlist cache found.")
-                    return []
+                async with aiofiles.open(WORDLIST_FILE, "r", encoding="utf-8") as f:
+                    return (await f.read()).splitlines()
             except FileNotFoundError:
-                logger.error("No local wordlist cache found.")
+                # No fallback source exists any more, so this is fatal rather than
+                # a degraded start. Every game mode that draws a word needs it.
+                logger.error(f"Word list not found at {WORDLIST_FILE}.")
                 return []
 
 
@@ -86,14 +61,14 @@ class Words:
                 words.append(row["word"])
             return words
 
-        source_task = asyncio.create_task(get_words_from_source())
+        file_task = asyncio.create_task(get_words_from_file())
         db_task = asyncio.create_task(get_words_from_db())
 
-        source_words = await source_task
+        file_words = await file_task
         db_words = await db_task
-        if not source_words:
-            logger.warning("Word source unavailable. Using only DB words.")
-        wordlist = list(set(source_words + db_words))
+        if not file_words:
+            logger.warning("Bundled word list unavailable. Using only DB words.")
+        wordlist = list(set(file_words + db_words))
 
         logger.info("Processing words")
 
@@ -108,7 +83,7 @@ class Words:
         if not Words.count:
             # An empty DAWG makes get_random_word() return None, which crashes every
             # game mode that picks a starting word. Fail loudly instead of silently.
-            raise ValueError("Word list is empty (source and database both unavailable).")
+            raise ValueError("Word list is empty (bundled file missing and no DB words).")
 
         logger.info(f"DAWG updated with {Words.count} words")
 

@@ -98,7 +98,12 @@ UPDATE_CHANNEL = get_str("UPDATE_CHANNEL", "SuMelodyVibes")
 # Log level for the bot (DEBUG, INFO, WARNING, ERROR, CRITICAL)
 LOG_LEVEL: str = get_str("LOG_LEVEL", "INFO").upper()
 
-WORDLIST_SOURCE = "https://raw.githubusercontent.com/dwyl/english-words/master/words.txt"
+# The word list ships with the bot rather than being downloaded at startup, so
+# the set of accepted words is fixed by the commit and cannot drift or fail
+# because a remote host is down, slow, or changes under us. One lowercase word
+# per line, already filtered to alphabetic; build_dawg() lowercases again
+# because DB-accepted words still arrive in whatever case they were stored.
+WORDLIST_FILE = "chainnokizuna/data/wordlist.txt"
 
 # Curated pools, used for the words the bot chooses for itself (opening word and
 # VP replies) rather than for validating player input. The full list above stays

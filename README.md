@@ -164,6 +164,12 @@ c:\Users\HP\Downloads\WORD\on9wordchainbot
 │   │   └── timer.py         # Asynchronous game timers
 │   └── __main__.py          # Application entry point
 ├── config.py                # Global settings & game balance
+├── chainnokizuna/data/      # Bundled word lists
+│   ├── wordlist.txt         # Full dictionary the bot validates against
+│   ├── commonwords.json     # Curated everyday words for the bot's own picks
+│   ├── fiveletters.json     # All 5-letter words
+│   ├── all-five.json        # 5-letter validation set (Guess the Word mode)
+│   └── commonfiveletterwords.json  # 5-letter words with meanings & examples
 ├── LICENSE                  # MIT License file
 ├── Dockerfile               # Containerization manifest
 ├── .dockerignore            # Files excluded from Docker builds

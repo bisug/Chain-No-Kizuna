@@ -21,7 +21,11 @@ build/
 *.pyd
 
 # Project Specific
+# wordlist.txt is deliberately tracked: it is the pinned word list the bot
+# validates against, replacing the old runtime download of a remote source.
+# Other data/*.txt files are runtime caches and stay ignored.
 chainnokizuna/data/*.txt
+!chainnokizuna/data/wordlist.txt
 !chainnokizuna/data/.gitkeep
 config*.json
 
