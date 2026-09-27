@@ -201,7 +201,3 @@ async def inline_handler(inline_query: types.InlineQuery) -> None:
         )
 
     await inline_query.answer(results, is_personal=True)
-
-
-async def callback_query_handler(callback_query: types.CallbackQuery) -> None:
-    await callback_query.answer()

@@ -38,7 +38,7 @@ async def error_handler(event: types.ErrorEvent) -> None:
         if update.message is not None and update.message.chat is not None:
             group_id = update.message.chat.id
             if group_id in GlobalState.games:
-                asyncio.create_task(GlobalState.games[group_id].scan_for_stale_timer())
+                GlobalState.games[group_id].request_stale_scan()
 
         # TODO: let's get these errors sent to the admin group for now, revisit later
         # if isinstance(error, TelegramBadRequest) and str(error) in (

@@ -1,9 +1,11 @@
 """Regression tests for game state persistence and the nullable from_user fix."""
+import asyncio
 import datetime
 import unittest
 from unittest import mock
 
 from config import GameState
+from chainnokizuna.core.resources import GlobalState
 from chainnokizuna.db.redis import _get_game_class
 from chainnokizuna.models import GAME_MODES, ClassicGame
 from chainnokizuna.models.player import Player
@@ -149,6 +151,95 @@ class TestForcefleeNullableFromUser(unittest.TestCase):
         game = self._game()
         run(game.forceflee(make_message(text="/forceflee")))
         self.assertEqual(len(game.players), 1)
+
+
+class TestStaleTimerScanIsIdempotent(unittest.TestCase):
+    """join() and error_handler both request this scan; it must not pile up.
+
+    Without a guard, N triggers meant N concurrent 5-second scanners, each
+    repeating the teardown and the admin-group notification.
+    """
+
+    GROUP_ID = -100555
+
+    def setUp(self):
+        self.game = ClassicGame(self.GROUP_ID)
+        self.game.state = GameState.JOINING
+        self.game.time_left = -99999
+        GlobalState.games[self.GROUP_ID] = self.game
+
+    def tearDown(self):
+        GlobalState.games.clear()
+
+    def test_repeated_requests_start_one_scan(self):
+        async def scenario():
+            started = []
+
+            async def fake_scan(self):
+                started.append(1)
+
+            with mock.patch.object(ClassicGame, "scan_for_stale_timer", new=fake_scan):
+                for _ in range(25):
+                    self.game.request_stale_scan()
+                await asyncio.sleep(0)
+            return len(started)
+
+        self.assertEqual(run(scenario()), 1)
+
+    def test_a_new_scan_is_allowed_once_the_previous_one_finishes(self):
+        async def scenario():
+            started = []
+
+            async def fake_scan(self):
+                started.append(1)
+
+            with mock.patch.object(ClassicGame, "scan_for_stale_timer", new=fake_scan):
+                self.game.request_stale_scan()
+                await asyncio.sleep(0.01)  # let it complete
+                self.game.request_stale_scan()
+                await asyncio.sleep(0)
+            return len(started)
+
+        self.assertEqual(run(scenario()), 2)
+
+    def test_repeated_joins_start_one_scan(self):
+        async def scenario():
+            started = []
+
+            async def fake_scan(self):
+                started.append(1)
+
+            with mock.patch.object(ClassicGame, "scan_for_stale_timer", new=fake_scan):
+                for i in range(10):
+                    await self.game.join(
+                        make_message(text="/join", chat_id=self.GROUP_ID,
+                                     user=make_user(user_id=100 + i))
+                    )
+                await asyncio.sleep(0.01)
+            return len(started)
+
+        self.assertEqual(run(scenario()), 1)
+        self.assertEqual(len(self.game.players), 0, "a negative timer blocks joining")
+
+
+class TestTeardownToleratesConcurrentRemoval(unittest.TestCase):
+    """/killgame and error_handler delete the entry while main_loop still ticks.
+
+    The joining-phase teardown used `del`, which raised KeyError in that race;
+    every other teardown site already used pop(..., None).
+    """
+
+    GROUP_ID = -100556
+
+    def tearDown(self):
+        GlobalState.games.clear()
+
+    def test_pop_does_not_raise_when_entry_already_removed(self):
+        game = ClassicGame(self.GROUP_ID)
+        GlobalState.games[self.GROUP_ID] = game
+        GlobalState.games.pop(self.GROUP_ID, None)  # e.g. /killgame won the race
+        GlobalState.games.pop(self.GROUP_ID, None)  # what main_loop now does
+        self.assertNotIn(self.GROUP_ID, GlobalState.games)
 
 
 if __name__ == "__main__":

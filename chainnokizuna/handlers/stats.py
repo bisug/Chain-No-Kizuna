@@ -35,12 +35,16 @@ async def cmd_stats(message: types.Message) -> None:
         )
         return
 
-    win_rate = (res['win_count'] / res['game_count'] * 100) if res.get('game_count', 0) > 0 else 0
-    
+    # .get() for both: a document with game_count but no win_count would
+    # otherwise raise KeyError past the guard.
+    game_count = res.get("game_count", 0)
+    win_count = res.get("win_count", 0)
+    win_rate = (win_count / game_count * 100) if game_count > 0 else 0
+
     text = (
         f"📊 Statistics for {mention}:\n"
-        f"<b>{res.get('game_count', 0)}</b> games played\n"
-        f"<b>{res.get('win_count', 0)} ({win_rate:.0f}%)</b> games won\n"
+        f"<b>{game_count}</b> games played\n"
+        f"<b>{win_count} ({win_rate:.0f}%)</b> games won\n"
         f"<b>{res.get('guess_word_wins', 0)}</b> Guess the Word wins\n"
         f"<b>{res.get('word_count', 0)}</b> total words played\n"
         f"<b>{res.get('letter_count', 0)}</b> total letters played"

@@ -36,7 +36,7 @@ class ClassicGame:
         "extended_user_ids", "min_players", "max_players", "time_left", "time_limit",
         "min_letters_limit", "current_word", "longest_word", "longest_word_sender_id",
         "answered", "accepting_answers", "turns", "used_words", "join_lock", "answer_lock",
-        "_admin_cache", "allow_any_player_answer"
+        "_admin_cache", "allow_any_player_answer", "_stale_scan_task"
     )
 
     def __init__(self, group_id: int) -> None:
@@ -70,6 +70,9 @@ class ClassicGame:
         self.answer_lock = asyncio.Lock() # Protect against race conditions in turn processing
         
         self._admin_cache: dict[int, tuple[float, bool]] = {} # user_id -> (timestamp, is_admin)
+        # In-flight scan_for_stale_timer task, so repeated triggers are no-ops.
+        # Not serialised: it is per-process, and a restore starts no scan.
+        self._stale_scan_task: Optional[asyncio.Task] = None
 
     def to_dict(self) -> dict:
         """Serialize game state for persistence."""
@@ -124,6 +127,7 @@ class ClassicGame:
         game.join_lock = asyncio.Lock()
         game.answer_lock = asyncio.Lock()
         game._admin_cache = {}
+        game._stale_scan_task = None
 
         # Reconstruct players
         from chainnokizuna.models.player import Player
@@ -202,7 +206,7 @@ class ClassicGame:
 
             # Try to detect game not starting
             if self.time_left < 0:
-                asyncio.create_task(self.scan_for_stale_timer())
+                self.request_stale_scan()
                 return
 
             # Check if user already joined
@@ -698,6 +702,17 @@ class ClassicGame:
         if operations:
             await db.players.bulk_write(operations)
 
+    def request_stale_scan(self) -> None:
+        """Schedules scan_for_stale_timer unless one is already running.
+
+        Both join() and error_handler can fire this repeatedly; without the
+        guard N triggers meant N concurrent scanners, each of which would
+        repeat the teardown and spam the admin group.
+        """
+        if self._stale_scan_task is not None and not self._stale_scan_task.done():
+            return
+        self._stale_scan_task = asyncio.create_task(self.scan_for_stale_timer())
+
     async def scan_for_stale_timer(self) -> None:
         # Check if game timer is stuck
         prev = self.time_left
@@ -745,7 +760,12 @@ class ClassicGame:
                             await self.send_message(f"{self.time_left}s left to /join.")
                     elif len(self.players) < self.min_players:
                         await self.send_message("Not enough players. Game terminated.")
-                        del GlobalState.games[self.group_id]
+                        # pop(..., None), not del: /killgame and error_handler can
+                        # remove this entry while main_loop is still ticking, and
+                        # every other teardown site tolerates that race.
+                        GlobalState.games.pop(self.group_id, None)
+                        from chainnokizuna.db.redis import remove_game
+                        await remove_game(self.group_id)
                         return
                     else:
                         self.state = GameState.RUNNING
