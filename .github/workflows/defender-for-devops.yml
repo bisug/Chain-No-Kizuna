@@ -27,6 +27,17 @@ on:
 # NOTE: schedule removed (was cron: 15 14 * * 1) - private repo, saves quota.
 # Push/PR triggers still cover security scanning on active changes.
 
+# Without these, GITHUB_TOKEN only gets the repo default (read-only) and the
+# SARIF upload step fails with "Resource not accessible by integration".
+# - security-events: write  -> upload-sarif to the Code scanning tab
+# - id-token: write         -> container mapping post-job requests an OIDC token
+# - actions: read           -> workflow run telemetry
+permissions:
+  contents: read
+  security-events: write
+  id-token: write
+  actions: read
+
 jobs:
   MSDO:
     # currently only windows latest is supported
