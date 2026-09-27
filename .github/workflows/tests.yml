@@ -1,0 +1,57 @@
+name: Tests
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unittest:
+    runs-on: ubuntu-latest
+    env:
+      # The bot refuses to import without these; they are never sent to Telegram.
+      TOKEN: "123456789:CIplaceholderTOKEN000000000000000"
+      MONGO_URI: "mongodb://127.0.0.1:27017"
+      REDIS_URL: "redis://localhost:6379/0"
+      OWNER_ID: "1"
+
+    steps:
+    - uses: actions/checkout@v7
+
+    - name: Set up Python
+      uses: actions/setup-python@v7
+      with:
+        # Matches requires-python (>=3.14) in pyproject.toml.
+        python-version: "3.14"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v10
+      with:
+        enable-cache: true
+
+    - name: Install dependencies
+      # The project is an application, not a distributable package (no
+      # [build-system]), so `uv sync` alone is the correct install step.
+      run: uv sync --frozen
+
+    - name: Start Redis for the leader-election tests
+      run: |
+        redis-server --daemonize yes --save '' --appendonly no
+        redis-cli ping
+
+    - name: Run test suite
+      # RUN_REDIS_TESTS=1 enables the live-Redis leader-election test.
+      run: |
+        export RUN_REDIS_TESTS=1
+        uv run --no-sync python -m unittest discover -s tests -t . -v
+
+    - name: Lint for real errors (pyflakes + syntax)
+      run: uvx ruff@latest check --no-cache --select F,E9 chainnokizuna config.py tests
