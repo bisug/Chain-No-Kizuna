@@ -13,8 +13,15 @@ from chainnokizuna.utils.telegram import send_admin_group, awaitable_to_coroutin
 
 async def migrate_chat(old_chat_id: int, new_chat_id: int) -> None:
     if old_chat_id in GlobalState.games:
-        GlobalState.games[new_chat_id] = GlobalState.games.pop(old_chat_id)
-        GlobalState.games[new_chat_id].group_id = new_chat_id
+        game = GlobalState.games.pop(old_chat_id)
+        game.group_id = new_chat_id
+        GlobalState.games[new_chat_id] = game
+        # Re-key the persisted copy too, or a restart would restore the game
+        # against the old, unreachable chat id.
+        from chainnokizuna.db.redis import move_saved_game, save_game
+        await move_saved_game(old_chat_id, new_chat_id)
+        # Re-save under the new id so the stored group_id matches as well.
+        await save_game(game)
         asyncio.create_task(
             awaitable_to_coroutine(send_admin_group(f"Game moved from {old_chat_id} to {new_chat_id}."))
         )

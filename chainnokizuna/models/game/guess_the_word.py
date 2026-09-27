@@ -309,10 +309,19 @@ class GuessTheWordGame(ClassicGame):
         from chainnokizuna.core.resources import get_db
         db = get_db()
         
-        participants = [{"user_id": p.user_id, "name": p.name, "word_count": p.word_count, 
-                        "letter_count": p.letter_count, "won": p in self.players_in_game,
-                        "longest_word": p.longest_word, "full_name": p._name, 
-                        "username": p._username} for p in self.players]
+        # Same participant shape as ClassicGame.update_db, so both modes feed
+        # one schema. The old extra "name" field held rendered HTML markup that
+        # nothing read, and storing markup in the database invites injection if
+        # it is ever reused.
+        participants = [{
+            "user_id": p.user_id,
+            "won": p in self.players_in_game,
+            "word_count": p.word_count,
+            "letter_count": p.letter_count,
+            "longest_word": p.longest_word,
+            "full_name": p._name,
+            "username": p._username,
+        } for p in self.players]
         
         game_doc = {
             "group_id": self.group_id,

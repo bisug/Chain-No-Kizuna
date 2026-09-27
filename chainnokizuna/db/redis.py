@@ -87,6 +87,34 @@ async def register_active_game(group_id: int) -> None:
         logger.error(f"Failed to register active game {group_id}: {e}")
 
 
+async def move_saved_game(old_group_id: int, new_group_id: int) -> None:
+    """Re-key a persisted game from one group id to another.
+
+    Telegram hands out a new id when a group is upgraded to a supergroup, and
+    the in-memory game is re-keyed at that point, but the saved state was
+    still under the old id. A restart would then restore the game against a
+    chat the bot can no longer reach, while the new chat appeared to have no
+    game at all.
+    """
+    redis_client = _get_redis()
+    if redis_client is None or old_group_id == new_group_id:
+        return
+
+    old_key = f"{GAME_KEY_PREFIX}{old_group_id}"
+    new_key = f"{GAME_KEY_PREFIX}{new_group_id}"
+    try:
+        async with redis_client.pipeline(transaction=True) as pipe:
+            # RENAME fails if new_key exists, which would strand the state.
+            pipe.rename(old_key, new_key)
+            pipe.srem(ACTIVE_GAMES_KEY, str(old_group_id))
+            pipe.sadd(ACTIVE_GAMES_KEY, str(new_group_id))
+            # Preserve the safety-net TTL across the move.
+            pipe.expire(new_key, 86400)
+            await pipe.execute()
+    except Exception as e:
+        logger.error(f"Failed to move saved game {old_group_id} -> {new_group_id}: {e}")
+
+
 
 async def remove_game(group_id: int) -> None:
     """Remove a game's state from Redis when it ends."""
