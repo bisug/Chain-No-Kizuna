@@ -20,6 +20,11 @@ from chainnokizuna.utils.timer import GameTimer
 
 logger = logging.getLogger(__name__)
 
+# Local admin-membership cache: 15s TTL, capped so a large group calling
+# /extend cannot grow it without bound for the life of the game.
+_ADMIN_CACHE_TTL = 15
+_ADMIN_CACHE_MAX = 256
+
 
 class ClassicGame:
     """
@@ -69,7 +74,8 @@ class ClassicGame:
         self.join_lock = asyncio.Lock()  # Prevent same user / vp joining as multiple players
         self.answer_lock = asyncio.Lock() # Protect against race conditions in turn processing
         
-        self._admin_cache: dict[int, tuple[float, bool]] = {} # user_id -> (timestamp, is_admin)
+        # Admin membership is re-checked from Telegram after _ADMIN_CACHE_TTL.
+        self._admin_cache: dict[int, tuple[float, bool]] = {} # user_id -> (cached_at, is_admin)
         # In-flight scan_for_stale_timer task, so repeated triggers are no-ops.
         # Not serialised: it is per-process, and a restore starts no scan.
         self._stale_scan_task: Optional[asyncio.Task] = None
@@ -181,11 +187,10 @@ class ClassicGame:
     async def is_admin(self, user_id: int) -> bool:
         """Checks if a user is an admin in the current group, with local caching."""
         now = time.time()
-        if user_id in self._admin_cache:
-            ts, is_adm = self._admin_cache[user_id]
-            if now - ts < 15: # 15s TTL
-                return is_adm
-        
+        cached = self._admin_cache.get(user_id)
+        if cached is not None and now - cached[0] < _ADMIN_CACHE_TTL:
+            return cached[1]
+
         try:
             user = await bot.get_chat_member(self.group_id, user_id)
             is_adm = isinstance(user, ADMINS)
@@ -194,7 +199,12 @@ class ClassicGame:
                 is_adm = False
             else:
                 raise e
-        
+
+        # Any group member can reach this via /extend, so the cache is not
+        # bounded by the admin count. Cap it and evict oldest-first; dicts
+        # preserve insertion order, so the first key is the stalest entry.
+        if len(self._admin_cache) >= _ADMIN_CACHE_MAX:
+            del self._admin_cache[next(iter(self._admin_cache))]
         self._admin_cache[user_id] = (now, is_adm)
         return is_adm
 

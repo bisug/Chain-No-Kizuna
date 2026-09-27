@@ -4,6 +4,8 @@ import datetime
 import unittest
 from unittest import mock
 
+from aiogram import types
+
 from config import GameState
 from chainnokizuna.core.resources import GlobalState
 from chainnokizuna.db.redis import _get_game_class
@@ -240,6 +242,75 @@ class TestTeardownToleratesConcurrentRemoval(unittest.TestCase):
         GlobalState.games.pop(self.GROUP_ID, None)  # e.g. /killgame won the race
         GlobalState.games.pop(self.GROUP_ID, None)  # what main_loop now does
         self.assertNotIn(self.GROUP_ID, GlobalState.games)
+
+
+class TestAdminCacheIsBounded(unittest.TestCase):
+    """Any group member can reach is_admin() via /extend, so the cache must be capped.
+
+    It is per-game __slots__ state that lives as long as the game does, so an
+    uncapped dict grew with the group's membership rather than its admin count.
+    """
+
+    GROUP_ID = -100557
+
+    def setUp(self):
+        from chainnokizuna.models.game import classic as classic_mod
+
+        self.mod = classic_mod
+        self.game = ClassicGame(self.GROUP_ID)
+        self.api_calls = []
+
+        async def fake_get_chat_member(chat_id, user_id):
+            self.api_calls.append(user_id)
+            return types.ChatMember(
+                member=make_user(user_id=user_id), status="creator"
+            )
+
+        patcher = mock.patch.object(classic_mod, "bot", new=mock.Mock(
+            get_chat_member=fake_get_chat_member))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_repeated_lookups_hit_the_cache(self):
+        async def scenario():
+            await self.game.is_admin(7)
+            before = len(self.api_calls)
+            for _ in range(50):
+                await self.game.is_admin(7)
+            return len(self.api_calls) - before
+
+        self.assertEqual(run(scenario()), 0, "cached lookups must not call Telegram")
+
+    def test_cache_never_exceeds_the_cap(self):
+        async def scenario():
+            for uid in range(1000):
+                await self.game.is_admin(uid)
+            return len(self.game._admin_cache)
+
+        self.assertEqual(run(scenario()), self.mod._ADMIN_CACHE_MAX)
+
+    def test_eviction_is_oldest_first(self):
+        async def scenario():
+            for uid in range(self.mod._ADMIN_CACHE_MAX + 10):
+                await self.game.is_admin(uid)
+            return 0 in self.game._admin_cache, 9 in self.game._admin_cache
+
+        oldest_evicted, tenth_evicted = run(scenario())
+        self.assertFalse(oldest_evicted, "oldest entry should be evicted")
+        self.assertFalse(tenth_evicted)
+
+    def test_expired_entry_is_refetched(self):
+        async def scenario():
+            await self.game.is_admin(42)
+            entry_at = self.game._admin_cache[42][0]
+            before = len(self.api_calls)
+            with mock.patch.object(
+                self.mod.time, "time", return_value=entry_at + self.mod._ADMIN_CACHE_TTL + 1
+            ):
+                await self.game.is_admin(42)
+            return len(self.api_calls) - before
+
+        self.assertEqual(run(scenario()), 1, "an expired entry must re-query Telegram")
 
 
 if __name__ == "__main__":
