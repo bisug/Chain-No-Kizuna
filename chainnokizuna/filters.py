@@ -3,18 +3,13 @@ from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Filter
 from aiogram.utils.chat_member import ADMINS
 
-from config import OWNER_ID, VIP
+from config import OWNER_ID
 from chainnokizuna.core.resources import GlobalState
 
 
 class IsOwner(Filter):
     async def __call__(self, message: types.Message) -> bool:
         return message.from_user.id == OWNER_ID
-
-
-class IsVIP(Filter):
-    async def __call__(self, message: types.Message) -> bool:
-        return message.from_user.id in VIP
 
 
 class IsAdmin(Filter):
@@ -41,6 +36,3 @@ class HasGameInstance(Filter):
 class IsMainBot(Filter):
     async def __call__(self, message: types.Message, bot: Bot) -> bool:
         return GlobalState.bot_user and bot.id == GlobalState.bot_user.id
-
-
-filters = [IsOwner, IsVIP, IsAdmin, HasGameInstance, IsMainBot]
