@@ -1,10 +1,12 @@
 """Regression tests for game state persistence and the nullable from_user fix."""
 import asyncio
 import datetime
+import pathlib
+import re
 import unittest
 from unittest import mock
 
-from aiogram import types
+from aiogram import types, html
 
 from config import GameState
 from chainnokizuna.core.resources import GlobalState
@@ -419,6 +421,106 @@ class TestWordlistRejectionLookupIsTargeted(unittest.TestCase):
             run(self.mod._collect_rejections(self._db(rows), ["apple", "pear"]))
         # to_list length must bound the fetch to the requested words
         self.assertEqual(self.fetch_lengths, [2], "fetch length bounded by request size")
+
+
+class TestHtmlEscapingOfDynamicText(unittest.TestCase):
+    """Dynamic text rendered into ParseMode.HTML must be escaped.
+
+    Telegram rejects the whole send when it sees a bare & or an unsupported
+    tag, so an unescaped value does not degrade the formatting, it loses the
+    message entirely.
+    """
+
+    SUPPORTED_TAGS = {"b", "i", "u", "s", "a", "code", "pre",
+                      "tg-spoiler", "tg-emoji", "blockquote"}
+
+    @classmethod
+    def _would_telegram_reject(cls, text):
+        for m in re.finditer(r"&(?!(?:[a-zA-Z]+|#x?[0-9a-fA-F]+);)", text):
+            return f"bare & at {m.start()}"
+        for m in re.finditer(r"<(/?)([a-zA-Z0-9-]+)", text):
+            if m.group(2) not in cls.SUPPORTED_TAGS:
+                return f"unsupported tag <{m.group(2)}>"
+        return None
+
+    def test_aiogram_quote_leaves_apostrophes_alone(self):
+        """aiogram's quote uses escape(quote=False).
+
+        Telegram does not accept &#x27;, so escaping the quote character would
+        break every display name like "O'Brien". Guard against that regressing
+        to the stdlib default.
+        """
+        self.assertEqual(html.quote("O'Brien"), "O'Brien")
+        self.assertEqual(html.quote("a & b"), "a &amp; b")
+
+    def test_guess_the_word_educational_reveal_is_escaped(self):
+        import chainnokizuna.models.game.guess_the_word as gtw
+        from aiogram import Bot
+        from chainnokizuna.models.game.guess_the_word import GuessTheWordGame
+
+        captured = []
+
+        async def scenario():
+            game = GuessTheWordGame(-1004321)
+            game.target_word = "mayor"
+            game.guess_count = 3
+            game.max_guesses = 30
+            game.guess_history = ["🟩 🟨 <b>APPLE</b>"]
+            game.start_time = datetime.datetime.now(datetime.timezone.utc)
+            game.state = 1
+            with mock.patch.object(gtw, "bot", new=Bot(token="1:T")), \
+                 mock.patch.object(GuessTheWordGame, "send_message",
+                                   new=mock.AsyncMock(side_effect=lambda *a, **k: captured.append(a[0]))):
+                await game.handle_game_end()
+
+        run(scenario())
+        self.assertTrue(captured, "summary message should have been sent")
+        text = captured[0]
+        self.assertIsNone(self._would_telegram_reject(text),
+                          f"summary would be rejected: {self._would_telegram_reject(text)}")
+
+    def test_real_shipped_data_no_longer_breaks_the_summary(self):
+        """'mayor' has a bare '&c.' in its meaning and is in the target pool."""
+        import json
+        import pathlib
+
+        data_file = pathlib.Path("chainnokizuna/data/commonfiveletterwords.json")
+        if not data_file.exists():
+            self.skipTest("word data file not present")
+        data = json.loads(data_file.read_text())
+        meaning = data.get("mayor", {}).get("meaning", "")
+        self.assertIn("&", meaning, "fixture assumption: mayor's meaning contains a bare &")
+        rendered = f"<b>Meaning:</b> <i>{html.quote(meaning)}</i>"
+        self.assertIsNone(self._would_telegram_reject(rendered))
+
+    def test_rejection_reason_is_escaped_on_both_display_paths(self):
+        import chainnokizuna.handlers.wordlist as wordlist_mod
+
+        source = pathlib.Path(wordlist_mod.__file__).read_text()
+        # Both reqaddword and addwords build the same line; neither may
+        # interpolate the stored reason unescaped, because it is re-rendered
+        # to every later requester.
+        unescaped = "Reason: {reason}."
+        self.assertNotIn(unescaped, source,
+                         "stored reason must be escaped before reaching HTML")
+        self.assertIn("Reason: {html.quote(reason)}", source)
+
+    def test_exception_text_is_escaped_before_reaching_html(self):
+        import chainnokizuna.handlers.gameplay as gameplay_mod
+
+        source = pathlib.Path(gameplay_mod.__file__).read_text()
+        self.assertNotIn("f\"<code>{e.__class__.__name__}: {e}</code>\"", source,
+                         "int() echoes its argument, so this carried owner input into HTML")
+
+    def test_guess_validation_rejects_non_ascii_letters(self):
+        """str.isalpha() accepts any Unicode letter; is_word() does not."""
+        from chainnokizuna.services.words import is_word
+
+        self.assertTrue(is_word("apple"))
+        for bad in ("аpple", "àpple", "ap3le", "a p"):
+            self.assertFalse(is_word(bad), bad)
+        # isalpha() would have accepted these, which is why it was replaced.
+        self.assertTrue("аpple".isalpha())
 
 
 if __name__ == "__main__":

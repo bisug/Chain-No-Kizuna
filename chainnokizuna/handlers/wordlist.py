@@ -122,7 +122,9 @@ async def cmd_reqaddword(message: types.Message, command: CommandObject) -> None
     if rejected:
         text += f"{', '.join(rejected)} {'was' if len(rejected) == 1 else 'were'} rejected.\n"
     for word, reason in rejected_with_reason:
-        text += f"{word} was rejected. Reason: {reason}.\n"
+        # The owner writes the reason once via /rejword, but it is stored raw
+        # and re-rendered here to every later requester, so it must be escaped.
+        text += f"{word} was rejected. Reason: {html.quote(reason)}.\n"
     await message.reply(text, parse_mode=ParseMode.HTML)
 
 
@@ -153,7 +155,7 @@ async def cmd_addwords(message: types.Message, command: CommandObject) -> None:
     if rejected:
         text += f"{', '.join(rejected)} {'was' if len(rejected) == 1 else 'were'} rejected.\n"
     for word, reason in rejected_with_reason:
-        text += f"{word} was rejected. Reason: {reason}.\n"
+        text += f"{word} was rejected. Reason: {html.quote(reason)}.\n"
     msg = await message.reply(text, parse_mode=ParseMode.HTML)
 
     if not words_to_add:

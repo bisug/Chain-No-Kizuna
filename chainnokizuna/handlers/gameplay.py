@@ -10,7 +10,7 @@ from chainnokizuna.utils.decorators import send_groups_only_message
 from chainnokizuna.filters import HasGameInstance, IsAdmin, IsOwner, IsMainBot
 from chainnokizuna.models import ClassicGame, EliminationGame, GAME_MODES, MixedEliminationGame, GuessTheWordGame
 from chainnokizuna.services.words import Words
-from aiogram import Router, types, Bot, F
+from aiogram import Router, types, Bot, F, html
 from aiogram.enums import ParseMode
 
 gameplay_router = Router(name=__name__)
@@ -151,7 +151,12 @@ async def cmd_killgame(message: types.Message, command: CommandObject) -> None:
         assert group_id < 0, "Invalid group ID"
         assert group_id in GlobalState.games, "no game running"
     except (ValueError, AssertionError) as e:
-        await message.reply(f"<code>{e.__class__.__name__}: {e}</code>", parse_mode=ParseMode.HTML)
+        # int() echoes its argument in the ValueError, so this can carry
+        # arbitrary owner input into an HTML message.
+        await message.reply(
+            f"<code>{html.quote(f'{e.__class__.__name__}: {e}')}</code>",
+            parse_mode=ParseMode.HTML,
+        )
         return
 
     GlobalState.games[group_id].state = GameState.KILLGAME

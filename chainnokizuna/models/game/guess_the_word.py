@@ -5,11 +5,12 @@ import asyncio
 from typing import Optional
 from datetime import datetime, timezone
 
-from aiogram import types
+from aiogram import types, html
 from aiogram.enums import ParseMode
 
 from chainnokizuna.models.game.classic import ClassicGame
 from chainnokizuna.core.resources import bot, GlobalState
+from chainnokizuna.services.words import is_word
 from config import GameState
 
 logger = logging.getLogger(__name__)
@@ -117,7 +118,7 @@ class GuessTheWordGame(ClassicGame):
             if len(guess) != 5:
                 return
 
-            if not guess.isalpha():
+            if not is_word(guess):
                 # Still valid to reply here as it's a "bad" 5-letter word
                 await message.reply("Your guess must contain only letters!")
                 return
@@ -298,7 +299,7 @@ class GuessTheWordGame(ClassicGame):
             from chainnokizuna.db.redis import remove_game
             await remove_game(self.group_id)
             try:
-                await self.send_message(f"Game ended due to error: <code>{e}</code>")
+                await self.send_message(f"Game ended due to error: <code>{html.quote(str(e))}</code>")
             except Exception:
                 pass
             raise
@@ -393,8 +394,10 @@ class GuessTheWordGame(ClassicGame):
         text += f"📊 <b>Guess History:</b>\n{grid}\n\n"
         
         text += "💡 <b>Educational Reveal:</b>\n"
-        text += f"<b>Meaning:</b> <i>{meaning}</i>\n"
-        text += f"<b>Example:</b> <i>\"{example}\"</i>"
+        # The data file is prose, not markup: it contains bare "&" and "<"
+        # (e.g. "mayor" -> "borough, &c."), which Telegram rejects outright.
+        text += f"<b>Meaning:</b> <i>{html.quote(meaning)}</i>\n"
+        text += f"<b>Example:</b> <i>\"{html.quote(example)}\"</i>"
 
         from chainnokizuna.core.resources import GlobalState
         await self.send_message(text, parse_mode=ParseMode.HTML)
