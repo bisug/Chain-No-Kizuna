@@ -1,0 +1,16 @@
+# Dependabot watches the uv lockfile.
+#
+# Without this file Dependabot runs on inferred defaults and still tracks
+# requirements.txt, which was removed during the uv migration. That left it
+# resolving the wrong versions (the dependency graph reported aiohttp with a
+# null version) and left 14 aiohttp alerts stuck open after the upgrade that
+# already fixed them.
+version: 2
+updates:
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
