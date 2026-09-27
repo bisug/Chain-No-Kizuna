@@ -46,7 +46,6 @@ class BannedLettersGame(ClassicGame):
             parse_mode=ParseMode.HTML
         )
 
-        # Reset per-turn attributes
         self.reset_turn()
 
         if self.players_in_game[0].is_vp:
@@ -89,7 +88,6 @@ class BannedLettersGame(ClassicGame):
     async def running_initialization(self) -> None:
         self.set_banned_letters()
 
-        # Random starting word
         self.current_word = await get_random_word_async(
             min_len=self.min_letters_limit, banned_letters=self.banned_letters
         )

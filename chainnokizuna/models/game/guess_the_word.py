@@ -69,7 +69,6 @@ class GuessTheWordGame(ClassicGame):
             logger.error(f"Failed to load validation dictionary: {e}")
             raise ValueError("Could not load validation word database.")
 
-        # Load common words for target selection
         try:
             import aiofiles
             async with aiofiles.open("chainnokizuna/data/commonfiveletterwords.json", "rb") as f:
@@ -169,7 +168,6 @@ class GuessTheWordGame(ClassicGame):
             player.word_count += 1
             player.score += 100 # Bonus for winning
             
-            # Format history for header
             header = f"<b>5-letter mode</b> · {self.guess_count}/{self.max_guesses}"
             history_display = "\n".join(self.guess_history)
 
@@ -310,7 +308,6 @@ class GuessTheWordGame(ClassicGame):
         from chainnokizuna.core.resources import get_db
         db = get_db()
         
-        # Standard game recording
         participants = [{"user_id": p.user_id, "name": p.name, "word_count": p.word_count, 
                         "letter_count": p.letter_count, "won": p in self.players_in_game,
                         "longest_word": p.longest_word, "full_name": p._name, 
@@ -365,12 +362,10 @@ class GuessTheWordGame(ClassicGame):
         await message.reply("Virtual Players are not supported in <b>Guess the Word</b> mode.", parse_mode=ParseMode.HTML)
 
     async def handle_game_end(self) -> None:
-        # Calculate game length
         self.end_time = datetime.now(timezone.utc).replace(microsecond=0)
         td = self.end_time - self.start_time
         game_len_str = f"{int(td.total_seconds()) // 3600:02}{str(td)[-6:]}"
 
-        # Load educational data
         meaning = "N/A"
         example = "N/A"
         try:

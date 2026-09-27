@@ -157,7 +157,6 @@ async def cmd_killgame(message: types.Message, command: CommandObject) -> None:
     GlobalState.games[group_id].state = GameState.KILLGAME
     await asyncio.sleep(2)
 
-    # If game is still not terminated
     if group_id in GlobalState.games:
         del GlobalState.games[group_id]
         await message.reply("Game ended forcibly.")

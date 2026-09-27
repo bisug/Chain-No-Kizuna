@@ -12,7 +12,6 @@ from chainnokizuna.utils.telegram import send_admin_group, awaitable_to_coroutin
 
 
 async def migrate_chat(old_chat_id: int, new_chat_id: int) -> None:
-    # Migrate group running game
     if old_chat_id in GlobalState.games:
         GlobalState.games[new_chat_id] = GlobalState.games.pop(old_chat_id)
         GlobalState.games[new_chat_id].group_id = new_chat_id
@@ -21,7 +20,6 @@ async def migrate_chat(old_chat_id: int, new_chat_id: int) -> None:
         )
 
     db = get_db()
-    # Update all historical game records for this group
     await db.games.update_many(
         {"group_id": old_chat_id},
         {"$set": {"group_id": new_chat_id}}
@@ -39,23 +37,6 @@ async def error_handler(event: types.ErrorEvent) -> None:
             group_id = update.message.chat.id
             if group_id in GlobalState.games:
                 GlobalState.games[group_id].request_stale_scan()
-
-        # TODO: let's get these errors sent to the admin group for now, revisit later
-        # if isinstance(error, TelegramBadRequest) and str(error) in (
-        #     "Have no rights to send a message",
-        #     "Not enough rights to send text messages to the chat",
-        #     "Group chat was deactivated",
-        #     "Chat_write_forbidden",
-        #     "Channel_private"
-        # ):
-        #     return
-        # if isinstance(error, TelegramUnauthorizedError):
-        #     if str(error).startswith("Forbidden: bot is not a member"):
-        #         return
-        #     if str(error).startswith("Forbidden: bot was kicked"):
-        #         return
-        # if str(error).startswith("Internal Server Error: sent message was immediately deleted"):
-        #     return
 
         if isinstance(error, TelegramMigrateToChat):
             await migrate_chat(update.message.chat.id, error.migrate_to_chat_id)
@@ -91,7 +72,6 @@ async def error_handler(event: types.ErrorEvent) -> None:
                 GlobalState.games[group_id].state = GameState.KILLGAME
                 await asyncio.sleep(2)
 
-                # If game is still not terminated
                 if group_id in GlobalState.games:
                     del GlobalState.games[group_id]
                     try:

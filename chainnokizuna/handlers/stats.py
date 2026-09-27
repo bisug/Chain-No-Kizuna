@@ -113,7 +113,6 @@ async def cmd_groupstats(message: types.Message) -> None:
     )
 
 
-# Simple in-memory cache
 _global_stats_cache: Optional[Tuple[float, str]] = None  # (timestamp, content)
 _GLOBAL_STATS_TTL = 30  # seconds
 

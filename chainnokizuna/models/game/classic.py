@@ -214,12 +214,10 @@ class ClassicGame:
             if self.state != GameState.JOINING or len(self.players) >= self.max_players:
                 return
 
-            # Try to detect game not starting
             if self.time_left < 0:
                 self.request_stale_scan()
                 return
 
-            # Check if user already joined
             user = message.from_user
             if self.user_in_game(user.id):
                 return
@@ -229,14 +227,12 @@ class ClassicGame:
 
             await self.announce_roster_change(player, "joined")
 
-            # Save state after player joins
             from chainnokizuna.db.redis import register_active_game, save_game
             await save_game(self)
             # First save of this game: also claim the active-games set slot, so
             # load_all_games() can find it after a restart.
             await register_active_game(self.group_id)
 
-            # Start game when max players reached
             if len(self.players) >= self.max_players:
                 self.time_left = -99999
 
@@ -250,7 +246,6 @@ class ClassicGame:
             else:
                 user = message.from_user
 
-            # Check if user already joined
             if self.user_in_game(user.id):
                 return
 
@@ -261,7 +256,6 @@ class ClassicGame:
 
             await self.announce_roster_change(player, "was forced to join")
 
-            # Start game when max players reached
             if len(self.players) >= self.max_players:
                 self.time_left = -99999
 
@@ -271,7 +265,6 @@ class ClassicGame:
             if self.state != GameState.JOINING:
                 return
 
-            # Find player to remove
             user_id = message.from_user.id
             for i in range(len(self.players)):
                 if self.players[i].user_id == user_id:
@@ -288,7 +281,6 @@ class ClassicGame:
             if self.state != GameState.JOINING or not message.reply_to_message:
                 return
 
-            # Find player to remove
             # from_user is None for channel posts / anonymous admins
             origin_user = message.reply_to_message.from_user
             if origin_user is None:
@@ -308,7 +300,6 @@ class ClassicGame:
             if self.state != GameState.JOINING or len(self.players) >= self.max_players:
                 return
 
-            # Check if Virtual Player already joined
             if any(p.is_vp for p in self.players):
                 return
 
@@ -339,7 +330,6 @@ class ClassicGame:
             await vp_bot.send_message(self.group_id, f"/join@{GlobalState.bot_user.username}")
             await self.announce_roster_change(vp, "joined")
 
-            # Start game when max players reached
             if len(self.players) >= self.max_players:
                 self.time_left = -99999
 
@@ -348,7 +338,6 @@ class ClassicGame:
             if self.state != GameState.JOINING:
                 return
 
-            # Check if Virtual Player has joined
             if not any(p.is_vp for p in self.players):
                 return
 
@@ -447,7 +436,6 @@ class ClassicGame:
             parse_mode=ParseMode.HTML
         )
 
-        # Reset per-turn attributes
         self.reset_turn()
 
         if self.players_in_game[0].is_vp:
@@ -535,7 +523,6 @@ class ClassicGame:
 
     def post_turn_processing(self, word: str) -> None:
         """Updates game state, word counts, and persistence after a valid answer."""
-        # Update attributes
         self.used_words.add(word)
         self.turns += 1
 
@@ -551,11 +538,9 @@ class ClassicGame:
             self.longest_word = word
             self.longest_word_sender_id = self.players_in_game[0].user_id
 
-        # Set per-turn attributes
         self.answered = True
         self.accepting_answers = False
 
-        # Save state after answer
         from chainnokizuna.db.redis import save_game
         asyncio.create_task(save_game(self))
 
@@ -580,7 +565,6 @@ class ClassicGame:
         await self.send_message(text)
 
     async def running_initialization(self) -> None:
-        # Random starting word
         self.current_word = await get_random_word_async(min_len=self.min_letters_limit)
         self.used_words.add(self.current_word)
         self.start_time = datetime.now(timezone.utc).replace(microsecond=0)
@@ -632,7 +616,6 @@ class ClassicGame:
         return False
 
     async def handle_game_end(self) -> None:
-        # Calculate game length
         self.end_time = datetime.now(timezone.utc).replace(microsecond=0)
         td = self.end_time - self.start_time
         game_len_str = f"{int(td.total_seconds()) // 3600:02}{str(td)[-6:]}"
@@ -657,7 +640,6 @@ class ClassicGame:
         """Asynchronously exports game results and player statistics to MongoDB."""
         db = get_db()
         
-        # Prepare game document
         participants = []
         for player in self.players:
             won = player in self.players_in_game if self.state != GameState.KILLGAME else False
@@ -681,7 +663,6 @@ class ClassicGame:
             "participants": participants
         }
 
-        # Insert game record
         await db.games.insert_one(game_doc)
 
         if not self.players:

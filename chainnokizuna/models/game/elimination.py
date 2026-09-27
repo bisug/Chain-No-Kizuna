@@ -82,14 +82,13 @@ class EliminationGame(ClassicGame):
 
         total = len(lines)
         if total <= 10 or not show_player:
-            # Small roster, or nobody is highlighted: show the whole board.
             return "\n".join(lines)
 
-        # If player is in top 5 or bottom 5, show top 5 ... bottom 5
+        # Keep the highlighted player visible: either they are in the top or
+        # bottom five, or their own line is shown between the two halves.
         if show_idx < 5 or show_idx >= total - 5:
             return "\n".join(lines[:5] + ["..."] + lines[-5:])
-        
-        # Player is in the middle
+
         return "\n".join(lines[:5] + ["..."] + [lines[show_idx]] + ["..."] + lines[-5:])
 
     async def send_turn_message(self) -> None:
@@ -106,7 +105,6 @@ class EliminationGame(ClassicGame):
             parse_mode=ParseMode.HTML
         )
 
-        # Reset per-turn attributes
         self.reset_turn()
 
     def post_turn_processing(self, word: str) -> None:
@@ -124,7 +122,6 @@ class EliminationGame(ClassicGame):
         # No limit reduction
 
     async def running_initialization(self) -> None:
-        # Random starting word
         self.current_word = await get_random_word_async()
         self.used_words.add(self.current_word)
         self.start_time = datetime.now(timezone.utc).replace(microsecond=0)
@@ -157,7 +154,6 @@ class EliminationGame(ClassicGame):
         self.players_in_game.append(self.players_in_game.pop(0))
         self.turns_until_elimination -= 1
 
-        # Handle round transition
         if self.turns_until_elimination == 0:
             await self.handle_round_end()
 
@@ -197,6 +193,5 @@ class EliminationGame(ClassicGame):
             parse_mode=ParseMode.HTML
         )
 
-        # Update attributes
         self.players_in_game = [p for p in self.players_in_game if p not in eliminated]
         self.round += 1

@@ -79,10 +79,8 @@ class LeaderElection:
             await asyncio.sleep(self.RENEW_INTERVAL)
             try:
                 redis_client = get_vk()
-                # Extend validity of the key
-                # We use a Lua script or just SET again with XX (exist) to be safer,
-                # but for simplicity, we just set it again since we are the leader.
-                # Ideally check if value is still us, then extend.
+                # Compare-and-extend, so a lock that was taken over after our TTL
+                # expired is not silently renewed by whoever is polling now.
                 script = """
                 if redis.call("get", KEYS[1]) == ARGV[1] then
                     return redis.call("expire", KEYS[1], ARGV[2])

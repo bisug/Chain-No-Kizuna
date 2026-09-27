@@ -33,7 +33,6 @@ class GlobalState:
     games: dict[int, "ClassicGame"] = {}  # group id -> game instance
     games_lock: asyncio.Lock = asyncio.Lock()
 
-    # Bot identity info
     bot_user: Optional[types.User] = None
     vp_user: Optional[types.User] = None
 
@@ -56,7 +55,6 @@ vp_bot: Optional[Bot] = Bot(
 ) if VP_TOKEN else None
 
 
-# Initialized on startup
 session: Optional[aiohttp.ClientSession] = None
 mongo_client: Optional[AsyncMongoClient] = None
 vk: Optional[redis.Redis] = None
@@ -95,7 +93,6 @@ async def init_resources() -> None:
 
     session = aiohttp.ClientSession()
 
-    # Fetch bot identity
     GlobalState.bot_user = await bot.get_me()
     if vp_bot:
         GlobalState.vp_user = await vp_bot.get_me()
@@ -118,7 +115,6 @@ async def init_resources() -> None:
             retryWrites=True,
             serverSelectionTimeoutMS=5000
         )
-        # Check connection
         await mongo_client.admin.command('ping')
         await ensure_indexes()
         logger.info("MongoDB connected and indexed.")
@@ -156,21 +152,17 @@ async def ensure_indexes() -> None:
     
     logger.info("Initializing MongoDB indexes...")
     
-    # Games collection
     await db.games.create_index([("group_id", 1)])
     await db.games.create_index([("start_time", -1)])
     await db.games.create_index([("participants.user_id", 1)])
     await db.games.create_index([("game_mode", 1)])
     
-    # Players collection
-    # _id is already indexed (user_id)
     await db.players.create_index([("word_count", -1)])
     await db.players.create_index([("letter_count", -1)])
     # The leaderboard filters and sorts on guess_word_wins on every page
     # request; without this it is a collection scan plus an in-memory sort.
     await db.players.create_index([("guess_word_wins", -1)])
     
-    # Wordlist collection
     await db.wordlist.create_index([("word", 1)], unique=True)
     await db.wordlist.create_index([("accepted", 1)])
     

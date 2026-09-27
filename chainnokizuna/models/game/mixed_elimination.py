@@ -78,7 +78,6 @@ class MixedEliminationGame(EliminationGame):
         text += "Leaderboard:\n" + self.get_leaderboard(show_player=self.players_in_game[0])
         await self.send_message(text, parse_mode=ParseMode.HTML)
 
-        # Reset per-turn attributes
         self.reset_turn()
 
     async def additional_answer_checkers(self, word: str, message: types.Message) -> bool:
@@ -128,7 +127,6 @@ class MixedEliminationGame(EliminationGame):
 
         # First round is special since first word has to be set
 
-        # Set starting word and mode-based attributes
         if self.game_mode is BannedLettersGame:
             BannedLettersGame.set_banned_letters(self)
             self.current_word = await get_random_word_async(banned_letters=self.banned_letters)
@@ -166,7 +164,6 @@ class MixedEliminationGame(EliminationGame):
             modes.remove(self.game_mode)
         self.game_mode = random.choice(modes)
 
-        # Set mode-based attributes
         if self.game_mode is BannedLettersGame:
             BannedLettersGame.set_banned_letters(self)
         elif self.game_mode is RequiredLetterGame:

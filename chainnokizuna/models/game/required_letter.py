@@ -47,7 +47,6 @@ class RequiredLetterGame(ClassicGame):
             parse_mode=ParseMode.HTML
         )
 
-        # Reset per-turn attributes
         self.reset_turn()
 
         if self.players_in_game[0].is_vp:
@@ -80,7 +79,6 @@ class RequiredLetterGame(ClassicGame):
         self.change_required_letter()
 
     async def running_initialization(self) -> None:
-        # Random starting word
         self.current_word = await get_random_word_async(min_len=self.min_letters_limit)
         self.used_words.add(self.current_word)
         self.change_required_letter()
