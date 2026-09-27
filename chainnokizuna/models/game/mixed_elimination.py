@@ -79,9 +79,7 @@ class MixedEliminationGame(EliminationGame):
         await self.send_message(text, parse_mode=ParseMode.HTML)
 
         # Reset per-turn attributes
-        self.answered = False
-        self.accepting_answers = True
-        self.time_left = self.time_limit
+        self.reset_turn()
 
     async def additional_answer_checkers(self, word: str, message: types.Message) -> bool:
         if self.game_mode is BannedLettersGame:

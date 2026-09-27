@@ -48,9 +48,7 @@ class RequiredLetterGame(ClassicGame):
         )
 
         # Reset per-turn attributes
-        self.answered = False
-        self.accepting_answers = True
-        self.time_left = self.time_limit
+        self.reset_turn()
 
         if self.players_in_game[0].is_vp:
             await self.vp_answer()

@@ -218,10 +218,9 @@ async def answer_handler(message: types.Message, bot: Bot) -> None:
             return
 
     game = GlobalState.games[message.chat.id]
-    if (
-        (game.players_in_game or game.allow_any_player_answer)
-        and (game.allow_any_player_answer or (game.players_in_game and message.from_user.id == game.players_in_game[0].user_id))
-        and not game.answered
-        and game.accepting_answers
-    ):
+    is_turn_holder = (
+        game.allow_any_player_answer
+        or bool(game.players_in_game and message.from_user.id == game.players_in_game[0].user_id)
+    )
+    if is_turn_holder and not game.answered and game.accepting_answers:
         await game.handle_answer(message)

@@ -99,10 +99,7 @@ class GuessTheWordGame(ClassicGame):
 
     async def send_turn_message(self) -> None:
         # Override to prevent turn rotation messages, but we still need to keep the game "ticking"
-        # We'll show a status update every few guesses or just keep it silent until a guess
-        self.answered = False
-        self.accepting_answers = True
-        self.time_left = self.time_limit
+        self.reset_turn()
 
     async def handle_answer(self, message: types.Message) -> None:
         """Processes a potential answer from a player and validates it against game rules."""
@@ -166,12 +163,11 @@ class GuessTheWordGame(ClassicGame):
             history_line = f"{emojis_spaced} <b>{guess.upper()}</b>"
             self.guess_history.append(history_line)
             
+            # player is guaranteed non-None here: it was just found or created above.
             if guess == self.target_word:
                 self.answered = True
-            player = next((p for p in self.players if p.user_id == message.from_user.id), None)
-            if player:
-                player.word_count += 1
-                player.score += 100 # Bonus for winning
+            player.word_count += 1
+            player.score += 100 # Bonus for winning
             
             # Format history for header
             header = f"<b>5-letter mode</b> · {self.guess_count}/{self.max_guesses}"
@@ -293,10 +289,7 @@ class GuessTheWordGame(ClassicGame):
                             await self.update_db()
                             return
                 elif self.state == GameState.KILLGAME:
-                    await self.send_message("Game ended forcibly.")
-                    GlobalState.games.pop(self.group_id, None)
-                    from chainnokizuna.db.redis import remove_game
-                    await remove_game(self.group_id)
+                    await self.end_forced()
                     return
         except Exception as e:
             logger.error(f"Error in GuessTheWordGame loop: {e}")

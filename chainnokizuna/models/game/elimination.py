@@ -82,21 +82,9 @@ class EliminationGame(ClassicGame):
 
         total = len(lines)
         if total <= 10 or not show_player:
-            # If few players or specific player not highlighted, show up to 10 (top 10 ideally)
-            # But original logic showed *all* if <= 10.
-            # If total > 10 and no show_player, original showed top 10? 
-            # Original code: "if not show_player: Show every player". 
-            # Wait, if 100 players and no show_player, it showed 100 lines? That's spammy.
-            # I'll stick to showing all if not show_player for backward compatibility, 
-            # OR cap it at 10 to reduce spam (User suggestion 2 was "Reduce Chat Spam").
-            # But the user specifically asked for "refactor leaderboard", not "change behavior".
-            # I'll keep behavior close to original but cleaner.
-            if total <= 10:
-                return "\n".join(lines)
-            elif not show_player:
-                 return "\n".join(lines) # Original behavior for no show_player was "Show every player"
+            # Small roster, or nobody is highlighted: show the whole board.
+            return "\n".join(lines)
 
-        # Complex slicing logic made simple
         # If player is in top 5 or bottom 5, show top 5 ... bottom 5
         if show_idx < 5 or show_idx >= total - 5:
             return "\n".join(lines[:5] + ["..."] + lines[-5:])
@@ -119,9 +107,7 @@ class EliminationGame(ClassicGame):
         )
 
         # Reset per-turn attributes
-        self.answered = False
-        self.accepting_answers = True
-        self.time_left = self.time_limit
+        self.reset_turn()
 
     def post_turn_processing(self, word: str) -> None:
         super().post_turn_processing(word)

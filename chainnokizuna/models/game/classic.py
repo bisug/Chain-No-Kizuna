@@ -147,6 +147,28 @@ class ClassicGame:
         """Sends a message to the group associated with this game."""
         return await bot.send_message(self.group_id, *args, **kwargs)
 
+    def reset_turn(self) -> None:
+        """Clears the per-turn flags and reloads the turn clock."""
+        self.answered = False
+        self.accepting_answers = True
+        self.time_left = self.time_limit
+
+    async def end_forced(self) -> None:
+        """Tears down a game that was force-ended via GameState.KILLGAME."""
+        await self.send_message("Game ended forcibly.")
+        GlobalState.games.pop(self.group_id, None)
+        from chainnokizuna.db.redis import remove_game
+        await remove_game(self.group_id)
+
+    async def announce_roster_change(self, player: Player, action: str) -> None:
+        """Announces a join/leave, e.g. action='joined' or 'was forced to flee'."""
+        count = len(self.players)
+        await self.send_message(
+            f"{player.name} {action}. There {'is' if count == 1 else 'are'} now "
+            f"{count} player{'' if count == 1 else 's'}.",
+            parse_mode=ParseMode.HTML
+        )
+
     async def is_admin(self, user_id: int) -> bool:
         """Checks if a user is an admin in the current group, with local caching."""
         now = time.time()
@@ -186,11 +208,7 @@ class ClassicGame:
             player = await Player.create(user)
             self.players.append(player)
 
-            await self.send_message(
-                f"{player.name} joined. There {'is' if len(self.players) == 1 else 'are'} now "
-                f"{len(self.players)} player{'' if len(self.players) == 1 else 's'}.",
-                parse_mode=ParseMode.HTML
-            )
+            await self.announce_roster_change(player, "joined")
 
             # Save state after player joins
             from chainnokizuna.db.redis import save_game
@@ -219,11 +237,7 @@ class ClassicGame:
             if self.state == GameState.RUNNING:
                 self.players_in_game.append(player)
 
-            await self.send_message(
-                f"{player.name} was forced to join. There {'is' if len(self.players) == 1 else 'are'} now "
-                f"{len(self.players)} player{'' if len(self.players) == 1 else 's'}.",
-                parse_mode=ParseMode.HTML
-            )
+            await self.announce_roster_change(player, "was forced to join")
 
             # Start game when max players reached
             if len(self.players) >= self.max_players:
@@ -244,11 +258,7 @@ class ClassicGame:
             else:
                 return
 
-            await self.send_message(
-                f"{player.name} fled. There {'is' if len(self.players) == 1 else 'are'} now "
-                f"{len(self.players)} player{'' if len(self.players) == 1 else 's'}.",
-                parse_mode=ParseMode.HTML
-            )
+            await self.announce_roster_change(player, "fled")
 
     async def forceflee(self, message: types.Message) -> None:
         async with self.join_lock:
@@ -269,11 +279,7 @@ class ClassicGame:
             else:
                 return
 
-            await self.send_message(
-                f"{player.name} was forced to flee. There {'is' if len(self.players) == 1 else 'are'} now "
-                f"{len(self.players)} player{'' if len(self.players) == 1 else 's'}.",
-                parse_mode=ParseMode.HTML
-            )
+            await self.announce_roster_change(player, "was forced to flee")
 
     async def addvp(self, message: types.Message) -> None:
         async with self.join_lock:
@@ -309,13 +315,7 @@ class ClassicGame:
             self.players.append(vp)
 
             await vp_bot.send_message(self.group_id, f"/join@{GlobalState.bot_user.username}")
-            await self.send_message(
-                (
-                    f"{vp.name} joined. There {'is' if len(self.players) == 1 else 'are'} now "
-                    f"{len(self.players)} player{'' if len(self.players) == 1 else 's'}."
-                ),
-                parse_mode=ParseMode.HTML
-            )
+            await self.announce_roster_change(vp, "joined")
 
             # Start game when max players reached
             if len(self.players) >= self.max_players:
@@ -347,13 +347,7 @@ class ClassicGame:
                 return
 
             await vp_bot.send_message(self.group_id, f"/flee@{GlobalState.bot_user.username}")
-            await self.send_message(
-                (
-                    f"{vp.name} fled. There {'is' if len(self.players) == 1 else 'are'} now "
-                    f"{len(self.players)} player{'' if len(self.players) == 1 else 's'}."
-                ),
-                parse_mode=ParseMode.HTML
-            )
+            await self.announce_roster_change(vp, "fled")
 
     async def extend(self, message: types.Message) -> None:
         if self.state != GameState.JOINING:
@@ -432,9 +426,7 @@ class ClassicGame:
         )
 
         # Reset per-turn attributes
-        self.answered = False
-        self.accepting_answers = True
-        self.time_left = self.time_limit
+        self.reset_turn()
 
         if self.players_in_game[0].is_vp:
             await self.vp_answer()
@@ -776,10 +768,7 @@ class ClassicGame:
                             await self.update_db()
                             return
                 elif self.state == GameState.KILLGAME:
-                    await self.send_message("Game ended forcibly.")
-                    GlobalState.games.pop(self.group_id, None)
-                    from chainnokizuna.db.redis import remove_game
-                    await remove_game(self.group_id)
+                    await self.end_forced()
                     return
         except Exception as e:
             GlobalState.games.pop(self.group_id, None)
@@ -835,10 +824,7 @@ class ClassicGame:
                             await self.update_db()
                             return
                 elif self.state == GameState.KILLGAME:
-                    await self.send_message("Game ended forcibly.")
-                    GlobalState.games.pop(self.group_id, None)
-                    from chainnokizuna.db.redis import remove_game
-                    await remove_game(self.group_id)
+                    await self.end_forced()
                     return
         except Exception as e:
             GlobalState.games.pop(self.group_id, None)
