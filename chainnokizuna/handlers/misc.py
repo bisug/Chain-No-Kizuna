@@ -146,7 +146,6 @@ async def new_member(event: types.ChatMemberUpdated) -> None:
 
 @router.inline_query()
 async def inline_handler(inline_query: types.InlineQuery) -> None:
-    bot = inline_query.bot
     text = inline_query.query.lower()
     results: list[types.InlineQueryResultUnion] = []
 
