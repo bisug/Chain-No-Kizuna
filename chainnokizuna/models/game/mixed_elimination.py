@@ -135,7 +135,10 @@ class MixedEliminationGame(EliminationGame):
         elif self.game_mode is ChosenFirstLetterGame:
             # Ensure uniform probability of each letter as the starting letter
             # Prefixed, so ~0.1ms; stays synchronous to keep this branch inline.
-            self.current_word = get_random_word(prefix=random.choice(ascii_lowercase))
+            self.current_word = get_random_word(
+                prefix=random.choice(ascii_lowercase),
+                pool=self.word_pool
+            )
         else:
             self.current_word = self.require_starting_word(
                 await self.pick_starting_word()

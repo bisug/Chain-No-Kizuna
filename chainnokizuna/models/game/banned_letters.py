@@ -56,7 +56,8 @@ class BannedLettersGame(ClassicGame):
             min_len=self.min_letters_limit,
             prefix=self.current_word[-1],
             banned_letters=self.banned_letters,
-            exclude_words=self.used_words
+            exclude_words=self.used_words,
+            pool=self.word_pool
         )
 
     async def additional_answer_checkers(self, word: str, message: types.Message) -> bool:

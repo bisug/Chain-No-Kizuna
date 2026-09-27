@@ -35,6 +35,9 @@ class ClassicGame:
     command = "startclassic"
     # Modes that draw a starting word from the dictionary need a non-empty word list.
     requires_word_list = True
+    # Curated pool the bot picks its own words from (opening word, VP replies).
+    # None means the full word list. This never restricts what a player may type.
+    word_pool: Optional[str] = "common"
 
     __slots__ = (
         "group_id", "players", "players_in_game", "state", "start_time", "end_time",
@@ -447,7 +450,8 @@ class ClassicGame:
         return get_random_word(
             min_len=self.min_letters_limit,
             prefix=self.current_word[-1],
-            exclude_words=self.used_words
+            exclude_words=self.used_words,
+            pool=self.word_pool
         )
 
     async def vp_answer(self) -> None:
@@ -578,6 +582,11 @@ class ClassicGame:
         dictionary really is unusable. Callers still receive Optional[str];
         this narrows the None case rather than pretending it cannot happen.
         """
+        kwargs.setdefault("pool", self.word_pool)
+        # The full source list holds 126k words longer than the game ever
+        # accepts, up to a 45-letter 'pneumonoultramicroscopicsilicovolcanoconiosis'.
+        # Opening on one of those is unplayable, so cap the length by default.
+        kwargs.setdefault("max_len", GameSettings.MAX_STARTING_WORD_LENGTH)
         word = await get_random_word_async(**kwargs)
         if word is not None:
             return word
@@ -586,7 +595,7 @@ class ClassicGame:
             "No word matched %s in group %s; retrying with relaxed constraints.",
             kwargs, self.group_id,
         )
-        word = await get_random_word_async(min_len=1)
+        word = await get_random_word_async(min_len=1, pool=self.word_pool)
         if word is not None:
             return word
 

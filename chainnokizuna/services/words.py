@@ -5,12 +5,18 @@ import random
 from string import ascii_lowercase
 from typing import Optional
 
+import orjson
 from dawg import CompletionDAWG
 
-from config import WORDLIST_SOURCE
+from config import WORDLIST_SOURCE, WORD_POOL_FILES
 from chainnokizuna.core.resources import get_db, get_session
 
 logger = logging.getLogger(__name__)
+
+# Named word pools the game modes draw from. "general" is the full source list
+# and is the one used to validate what a player types, so a curated pool can
+# never make a legitimate word "not in my list of words".
+DEFAULT_POOL = "general"
 
 
 class Words:
@@ -18,8 +24,12 @@ class Words:
     Manages the bot's word dictionary using a Directed Acyclic Word Graph (DAWG)
     for high-performance prefix lookups and existence checks.
     """
+
     dawg: CompletionDAWG = CompletionDAWG()
     count: int = 0
+    # Extra pools loaded from bundled data files, keyed by pool name. These are
+    # deliberately smaller and curated; see load_pools().
+    pools: dict[str, CompletionDAWG] = {}
 
     @staticmethod
     async def update() -> None:
@@ -102,6 +112,64 @@ class Words:
 
         logger.info(f"DAWG updated with {Words.count} words")
 
+        await load_pools()
+
+
+async def load_pools() -> None:
+    """Builds the curated pools that ship alongside the full word list.
+
+    The full source list is exhaustive but contains 3-letter strings like "qwl"
+    and "mpu" that no player would guess, and 126k words longer than the game
+    ever accepts. The bot picks its own starting words and plays as the VP, so
+    it can emit an unplayable prompt or stall on a letter with almost no
+    candidates. Curated pools give it sane choices without narrowing what a
+    player is allowed to type, which still validates against the full list.
+
+    Pools are advisory for word choice only. A missing or malformed file is
+    logged and skipped rather than raised: the general list alone is enough to
+    run every game mode.
+    """
+    loop = asyncio.get_running_loop()
+
+    def build(words: list[str]) -> CompletionDAWG:
+        return CompletionDAWG(words)
+
+    for name, path in WORD_POOL_FILES.items():
+        try:
+            async with aiofiles.open(path, "rb") as f:
+                words = orjson.loads(await f.read())
+        except FileNotFoundError:
+            logger.error(f"Word pool {name!r} missing at {path}; skipping.")
+            continue
+        except Exception as e:
+            logger.error(f"Failed to load word pool {name!r} from {path}: {e}")
+            continue
+
+        cleaned = [w.lower() for w in words if isinstance(w, str) and w.isalpha()]
+        if not cleaned:
+            logger.error(f"Word pool {name!r} is empty after filtering; skipping.")
+            continue
+
+        Words.pools[name] = await loop.run_in_executor(None, build, cleaned)
+        logger.info(f"Word pool {name!r}: {len(Words.pools[name].keys()):,} words")
+
+
+def get_pool(name: Optional[str] = None) -> CompletionDAWG:
+    """Returns the DAWG for a named pool, falling back to the full list.
+
+    An unknown or unloaded pool name must not return an empty DAWG: that would
+    make get_random_word() yield None and force-skip turns. Falling back keeps
+    a game playable if a pool file is missing in a deployment.
+    """
+    if not name or name == DEFAULT_POOL:
+        return Words.dawg
+    pool = Words.pools.get(name)
+    if pool is None:
+        logger.warning(f"Word pool {name!r} not loaded; using the full word list.")
+        return Words.dawg
+    return pool
+
+
 def is_word(s: str) -> bool:
     """Checks if a string contains only lowercase ASCII letters."""
     return all(c in ascii_lowercase for c in s)
@@ -117,7 +185,9 @@ def get_random_word(
     prefix: Optional[str] = None,
     required_letter: Optional[str] = None,
     banned_letters: Optional[list[str]] = None,
-    exclude_words: Optional[set[str]] = None
+    exclude_words: Optional[set[str]] = None,
+    pool: Optional[str] = None,
+    max_len: Optional[int] = None
 ) -> Optional[str]:
     """
     Retrieves a random word from the dictionary matching specific constraints.
@@ -126,12 +196,18 @@ def get_random_word(
     measured ~90ms against a 370k-word dictionary. Call it from
     get_random_word_async() when the caller is a coroutine, so a burst of
     concurrent game starts cannot stall the event loop.
+
+    pool selects a curated word list for the bot's own choices. It does not
+    restrict what players may type: check_word_existence() always checks the
+    full list, so pointing a mode at a curated pool changes which word the bot
+    opens with, never which answers count.
     """
-    if not Words.dawg:
+    dawg = get_pool(pool)
+    if not dawg:
         return None
 
     # Use DAWG prefix search if available
-    iterator = Words.dawg.iterkeys(prefix) if prefix else Words.dawg.iterkeys()
+    iterator = dawg.iterkeys(prefix) if prefix else dawg.iterkeys()
 
     # Measured against a 370k-word dictionary: this full scan is ~80-95ms, but
     # it is dominated by iterating the DAWG, not by building the list. Reservoir
@@ -144,6 +220,8 @@ def get_random_word(
     for w in iterator:
         if len(w) < min_len:
             continue
+        if max_len is not None and len(w) > max_len:
+            continue
         if required_letter and required_letter not in w:
             continue
         if banned_letters and any(i in w for i in banned_letters):
@@ -152,7 +230,24 @@ def get_random_word(
             continue
         candidates.append(w)
 
-    return random.choice(candidates) if candidates else None
+    if candidates:
+        return random.choice(candidates)
+
+    # A curated pool is small, so some prefixes legitimately have no match in it
+    # (the "common" pool has only a couple of words starting with "x"). The VP
+    # picks by last letter, and returning None there makes vp_answer() force-skip
+    # the turn, so widen to the full list before giving up. Callers that pass no
+    # pool, or the full pool, are unaffected.
+    if pool and pool != DEFAULT_POOL:
+        return get_random_word(
+            min_len=min_len,
+            prefix=prefix,
+            required_letter=required_letter,
+            banned_letters=banned_letters,
+            exclude_words=exclude_words,
+            max_len=max_len,
+        )
+    return None
 
 
 async def get_random_word_async(**kwargs) -> Optional[str]:

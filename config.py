@@ -100,6 +100,19 @@ LOG_LEVEL: str = get_str("LOG_LEVEL", "INFO").upper()
 
 WORDLIST_SOURCE = "https://raw.githubusercontent.com/dwyl/english-words/master/words.txt"
 
+# Curated pools, used for the words the bot chooses for itself (opening word and
+# VP replies) rather than for validating player input. The full list above stays
+# the authority on what counts as a real word, so these never narrow the game.
+#
+# These are .json rather than .txt because .gitignore excludes data/*.txt, which
+# is the runtime download cache.
+WORD_POOL_FILES = {
+    # Everyday words a player is likely to recognise and build on.
+    "common": "chainnokizuna/data/commonwords.json",
+    # Every 5-letter word, for modes that need a fixed word length.
+    "five": "chainnokizuna/data/fiveletters.json",
+}
+
 
 class GameState:
     """Possible states for a Game instance."""
@@ -119,6 +132,9 @@ class GameSettings:
     TURN_SECONDS_REDUCTION_PER_LIMIT_CHANGE = 5
     MIN_WORD_LENGTH_LIMIT = 3
     MAX_WORD_LENGTH_LIMIT = 10
+    # Upper bound on the word a game opens with. The source list runs to 45
+    # letters, which is unplayable as a prompt, so opening words are capped.
+    MAX_STARTING_WORD_LENGTH = 12
     WORD_LENGTH_LIMIT_INCREASE_PER_LIMIT_CHANGE = 1
     TURNS_BETWEEN_LIMITS_CHANGE = 5
     JOINING_PHASE_WARNINGS = (15, 30, 60)

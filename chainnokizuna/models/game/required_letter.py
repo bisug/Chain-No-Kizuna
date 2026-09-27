@@ -58,7 +58,8 @@ class RequiredLetterGame(ClassicGame):
             min_len=self.min_letters_limit,
             prefix=self.current_word[-1],
             required_letter=self.required_letter,
-            exclude_words=self.used_words
+            exclude_words=self.used_words,
+            pool=self.word_pool
         )
 
     async def additional_answer_checkers(self, word: str, message: types.Message) -> bool:

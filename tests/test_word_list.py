@@ -345,5 +345,78 @@ class TestStartingWordNeverLeftUnset(unittest.TestCase):
         self.assertIn("word", str(ctx.exception).lower())
 
 
+class TestWordPools(unittest.TestCase):
+    """Curated pools change which word the bot picks, never what players may type.
+
+    The source list is exhaustive but contains 3-letter strings nobody guesses
+    and words up to 45 letters, so the bot could open a game on something
+    unplayable. Pools give it sane picks; check_word_existence() must keep
+    accepting the whole list or legitimate words get rejected.
+    """
+
+    def setUp(self):
+        self._dawg, self._count, self._pools = Words.dawg, Words.count, Words.pools
+        Words.dawg = CompletionDAWG(
+            ["apple", "apply", "banana", "pear", "zebra", "xylophone", "pneumonoultramicroscopicsilicovolcanoconiosis"]
+        )
+        Words.count = len(Words.dawg.keys())
+        Words.pools = {"common": CompletionDAWG(["apple", "banana"])}
+
+    def tearDown(self):
+        Words.dawg, Words.count, Words.pools = self._dawg, self._count, self._pools
+
+    def test_pool_restricts_the_bots_own_choice(self):
+        for _ in range(20):
+            self.assertIn(words_mod.get_random_word(pool="common"), {"apple", "banana"})
+
+    def test_no_pool_still_uses_the_full_list(self):
+        picks = {words_mod.get_random_word() for _ in range(40)}
+        self.assertNotIn(picks, ({"apple", "banana"},))
+
+    def test_validation_is_never_narrowed_by_a_pool(self):
+        # Obscure but real words must stay acceptable to players.
+        for word in ("xylophone", "pneumonoultramicroscopicsilicovolcanoconiosis"):
+            self.assertTrue(words_mod.check_word_existence(word), word)
+
+    def test_sparse_prefix_falls_back_instead_of_returning_none(self):
+        # The curated pool has no "x" words. Returning None here would make the
+        # VP force-skip the turn, so the full list must be tried.
+        word = words_mod.get_random_word(min_len=3, prefix="x", pool="common")
+        self.assertIsNotNone(word)
+        self.assertTrue(word.startswith("x"))
+
+    def test_unknown_pool_falls_back_to_the_full_list(self):
+        self.assertEqual(
+            sorted(words_mod.get_pool("does-not-exist").keys()),
+            sorted(Words.dawg.keys()),
+        )
+
+    def test_get_pool_returns_the_general_dawg_by_default(self):
+        self.assertIs(words_mod.get_pool(), Words.dawg)
+        self.assertIs(words_mod.get_pool("general"), Words.dawg)
+
+    def test_max_len_caps_the_opening_word(self):
+        from config import GameSettings
+
+        for _ in range(30):
+            word = words_mod.get_random_word(
+                min_len=1,
+                max_len=GameSettings.MAX_STARTING_WORD_LENGTH,
+                pool="common",
+            )
+            self.assertLessEqual(len(word), GameSettings.MAX_STARTING_WORD_LENGTH)
+
+    def test_every_word_pick_mode_declares_a_valid_pool(self):
+        from config import WORD_POOL_FILES
+
+        for mode in DICTIONARY_DEPENDENT:
+            with self.subTest(mode=mode.__name__):
+                pool = mode.word_pool
+                self.assertTrue(
+                    pool is None or pool == "general" or pool in WORD_POOL_FILES,
+                    f"{mode.__name__} names unknown pool {pool!r}",
+                )
+
+
 if __name__ == "__main__":
     unittest.main()
