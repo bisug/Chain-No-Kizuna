@@ -10,6 +10,8 @@ from chainnokizuna.models.game.classic import ClassicGame
 class ChosenFirstLetterGame(ClassicGame):
     name = "chosen first letter game"
     command = "startcfl"
+    # Picks a random letter, not a dictionary word.
+    requires_word_list = False
 
     @property
     def update_current_word_on_answer(self) -> bool:

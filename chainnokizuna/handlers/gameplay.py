@@ -9,6 +9,7 @@ from config import GameState, VIP, VIP_GROUP, UPDATE_CHANNEL
 from chainnokizuna.utils.decorators import send_groups_only_message
 from chainnokizuna.filters import HasGameInstance, IsAdmin, IsOwner, IsMainBot
 from chainnokizuna.models import ClassicGame, EliminationGame, GAME_MODES, MixedEliminationGame, GuessTheWordGame
+from chainnokizuna.services.words import Words
 from aiogram import Router, types, Bot, F
 from aiogram.enums import ParseMode
 
@@ -33,6 +34,15 @@ async def start_game(message: types.Message, game_type: Type[ClassicGame]) -> No
         await message.reply(
             "<b>🛠 Maintenance mode is on.</b> Games are temporarily disabled.\n"
             "This is likely due to a pending bot update.",
+            parse_mode=ParseMode.HTML
+        )
+        return
+
+    if game_type.requires_word_list and not Words.count:
+        # get_random_word() would return None and crash the game loop
+        await message.reply(
+            "<b>⚠️ Word list unavailable.</b> I can't start a word chain game right now.\n"
+            "Please try again later.",
             parse_mode=ParseMode.HTML
         )
         return

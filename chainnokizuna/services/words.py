@@ -89,8 +89,12 @@ class Words:
         Words.dawg = await loop.run_in_executor(None, build_dawg, wordlist)
 
         Words.count = len(Words.dawg.keys())
+        if not Words.count:
+            # An empty DAWG makes get_random_word() return None, which crashes every
+            # game mode that picks a starting word. Fail loudly instead of silently.
+            raise ValueError("Word list is empty (source and database both unavailable).")
 
-        logger.info("DAWG updated")
+        logger.info(f"DAWG updated with {Words.count} words")
 
 def is_word(s: str) -> bool:
     """Checks if a string contains only lowercase ASCII letters."""

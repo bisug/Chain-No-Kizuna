@@ -28,6 +28,8 @@ class ClassicGame:
     """
     name = "classic game"
     command = "startclassic"
+    # Modes that draw a starting word from the dictionary need a non-empty word list.
+    requires_word_list = True
 
     __slots__ = (
         "group_id", "players", "players_in_game", "state", "start_time", "end_time",
@@ -255,7 +257,11 @@ class ClassicGame:
                 return
 
             # Find player to remove
-            user_id = message.reply_to_message.from_user.id
+            # from_user is None for channel posts / anonymous admins
+            origin_user = message.reply_to_message.from_user
+            if origin_user is None:
+                return
+            user_id = origin_user.id
             for i in range(len(self.players)):
                 if self.players[i].user_id == user_id:
                     player = self.players.pop(i)

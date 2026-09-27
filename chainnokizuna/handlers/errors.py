@@ -82,16 +82,23 @@ async def error_handler(event: types.ErrorEvent) -> None:
             )
 
             if group_id in GlobalState.games:
-                asyncio.create_task(
-                    awaitable_to_coroutine(send_admin_msg.reply(f"Killing game in {group_id} consequently."))
-                )
+                # send_admin_group returns None when admin reporting is disabled
+                # (ADMIN_GROUP_ID unset) or the send failed. Never dereference it.
+                if send_admin_msg is not None:
+                    asyncio.create_task(
+                        awaitable_to_coroutine(send_admin_msg.reply(f"Killing game in {group_id} consequently."))
+                    )
                 GlobalState.games[group_id].state = GameState.KILLGAME
                 await asyncio.sleep(2)
 
                 # If game is still not terminated
                 if group_id in GlobalState.games:
                     del GlobalState.games[group_id]
-                    await update.message.reply("Game ended forcibly.")
+                    try:
+                        await update.message.reply("Game ended forcibly.")
+                    except Exception:
+                        # Best-effort notice: never let it mask the original error
+                        pass
     else:  # TODO: update is None, what to do?
         pass
 

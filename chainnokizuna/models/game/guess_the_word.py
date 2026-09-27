@@ -17,6 +17,8 @@ logger = logging.getLogger(__name__)
 class GuessTheWordGame(ClassicGame):
     name = "guess the word"
     command = "startguess"
+    # Uses its own bundled 5-letter JSON files, not the word-list DAWG.
+    requires_word_list = False
 
     __slots__ = ("target_word", "guess_count", "max_guesses", "guess_history", "dictionary", "last_waiting_msg_id", "state_lock")
 
@@ -183,35 +185,35 @@ class GuessTheWordGame(ClassicGame):
             await self.handle_game_end_winner(message.from_user)
             return
 
-        # Not correct
-        header = f"<b>5-letter mode</b> · {self.guess_count}/{self.max_guesses}"
-        # Telegram limit is 4096. Each line is ~20 chars. 100 lines = 2000 chars. Safe.
-        # But we truncate just in case to keep the UI clean.
-        visible_history = self.guess_history[-15:] # Show last 15 guesses
-        history_display = "\n".join(visible_history)
-        if len(self.guess_history) > 15:
-            history_display = f"... ({len(self.guess_history) - 15} previous guesses)\n" + history_display
-        
-        hint_msg = f"{header}\n\n{history_display}"
-        
-        if self.guess_count >= self.max_guesses:
-            await message.reply(
-                f"💀 <b>Game Over!</b>\n\n"
-                f"You've used all {self.max_guesses} guesses.\n"
-                f"The word was: <b>{self.target_word.upper()}</b>.\n"
-                f"Try harder next time! 😉",
-                parse_mode=ParseMode.HTML
-            )
-            self.answered = True # To end the loop
-            from chainnokizuna.db.redis import remove_game
-            GlobalState.games.pop(self.group_id, None)
-            await remove_game(self.group_id)
-            return
+            # Not correct
+            header = f"<b>5-letter mode</b> · {self.guess_count}/{self.max_guesses}"
+            # Telegram limit is 4096. Each line is ~20 chars. 100 lines = 2000 chars. Safe.
+            # But we truncate just in case to keep the UI clean.
+            visible_history = self.guess_history[-15:] # Show last 15 guesses
+            history_display = "\n".join(visible_history)
+            if len(self.guess_history) > 15:
+                history_display = f"... ({len(self.guess_history) - 15} previous guesses)\n" + history_display
 
-        await message.reply(hint_msg)
-        
-        from chainnokizuna.db.redis import save_game
-        asyncio.create_task(save_game(self))
+            hint_msg = f"{header}\n\n{history_display}"
+
+            if self.guess_count >= self.max_guesses:
+                await message.reply(
+                    f"💀 <b>Game Over!</b>\n\n"
+                    f"You've used all {self.max_guesses} guesses.\n"
+                    f"The word was: <b>{self.target_word.upper()}</b>.\n"
+                    f"Try harder next time! 😉",
+                    parse_mode=ParseMode.HTML
+                )
+                self.answered = True # To end the loop
+                from chainnokizuna.db.redis import remove_game
+                GlobalState.games.pop(self.group_id, None)
+                await remove_game(self.group_id)
+                return
+
+            await message.reply(hint_msg)
+
+            from chainnokizuna.db.redis import save_game
+            asyncio.create_task(save_game(self))
 
     def _calculate_hints(self, guess: str) -> str:
         hints = ["🟥"] * 5
