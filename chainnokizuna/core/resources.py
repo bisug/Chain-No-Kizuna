@@ -155,6 +155,9 @@ async def ensure_indexes() -> None:
     # _id is already indexed (user_id)
     await db.players.create_index([("word_count", -1)])
     await db.players.create_index([("letter_count", -1)])
+    # The leaderboard filters and sorts on guess_word_wins on every page
+    # request; without this it is a collection scan plus an in-memory sort.
+    await db.players.create_index([("guess_word_wins", -1)])
     
     # Wordlist collection
     await db.wordlist.create_index([("word", 1)], unique=True)

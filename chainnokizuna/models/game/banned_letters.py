@@ -7,7 +7,7 @@ from aiogram import types
 from aiogram.enums import ParseMode
 
 from chainnokizuna.models.game.classic import ClassicGame
-from chainnokizuna.services.words import get_random_word
+from chainnokizuna.services.words import get_random_word, get_random_word_async
 
 
 class BannedLettersGame(ClassicGame):
@@ -90,7 +90,7 @@ class BannedLettersGame(ClassicGame):
         self.set_banned_letters()
 
         # Random starting word
-        self.current_word = get_random_word(
+        self.current_word = await get_random_word_async(
             min_len=self.min_letters_limit, banned_letters=self.banned_letters
         )
         self.used_words.add(self.current_word)

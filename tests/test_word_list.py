@@ -4,6 +4,7 @@ get_random_word() returns Optional[str]. Before the fix, running_initialization
 assigned it to current_word and immediately called .capitalize() or [-1], so an
 empty dictionary crashed 8 of the 10 game modes.
 """
+import asyncio
 import unittest
 from unittest import mock
 
@@ -151,6 +152,113 @@ class TestUpdateRefusesEmptyDictionary(unittest.TestCase):
     def test_non_alpha_words_are_filtered_out(self):
         self._run_update("apple\n123\nbanana", [])
         self.assertEqual(Words.count, 2)
+
+
+class TestAsyncWordPicker(unittest.TestCase):
+    """Game starts call the DAWG walk from a coroutine, so it must not block the loop.
+
+    The unprefixed walk is a full scan and measured ~90ms on a 370k dictionary;
+    running it inline stalls the event loop for every concurrent game start.
+    """
+
+    def setUp(self):
+        self._dawg, self._count = Words.dawg, Words.count
+        Words.dawg = CompletionDAWG(["apple", "apply", "banana", "pear", "zebra"])
+        Words.count = 5
+
+    def tearDown(self):
+        Words.dawg, Words.count = self._dawg, self._count
+
+    def test_async_returns_a_valid_word(self):
+        word = run(words_mod.get_random_word_async())
+        self.assertIn(word, {"apple", "apply", "banana", "pear", "zebra"})
+
+    def test_async_honours_min_len(self):
+        for _ in range(20):
+            self.assertGreaterEqual(len(run(words_mod.get_random_word_async(min_len=5))), 5)
+
+    def test_async_honours_prefix(self):
+        for _ in range(10):
+            self.assertTrue(run(words_mod.get_random_word_async(prefix="app")).startswith("app"))
+
+    def test_async_returns_none_for_an_empty_dawg(self):
+        Words.dawg = CompletionDAWG()
+        Words.count = 0
+        self.assertIsNone(run(words_mod.get_random_word_async()))
+
+    def test_async_matches_the_sync_implementation(self):
+        """Same constraints, same distribution source, no behavioural change."""
+        for kwargs in ({"min_len": 5}, {"required_letter": "e"},
+                       {"banned_letters": ["z"]}, {"prefix": "app"}):
+            for _ in range(15):
+                word = run(words_mod.get_random_word_async(**kwargs))
+                if word is None:
+                    # No match is a legitimate result; the sync version does the same.
+                    self.assertIsNone(words_mod.get_random_word(**kwargs))
+                    continue
+                if kwargs.get("min_len"):
+                    self.assertGreaterEqual(len(word), kwargs["min_len"])
+                if kwargs.get("prefix"):
+                    self.assertTrue(word.startswith(kwargs["prefix"]))
+                if kwargs.get("required_letter"):
+                    self.assertIn(kwargs["required_letter"], word)
+                if kwargs.get("banned_letters"):
+                    self.assertFalse(set(kwargs["banned_letters"]) & set(word))
+
+    def test_prefixed_call_does_not_touch_the_executor(self):
+        """Prefixed is ~0.1ms, so it must stay inline rather than paying thread hand-off."""
+        async def scenario():
+            loop = asyncio.get_running_loop()
+            with mock.patch.object(
+                loop, "run_in_executor",
+                side_effect=AssertionError("prefixed path should not offload"),
+            ):
+                return await words_mod.get_random_word_async(prefix="app")
+
+        self.assertTrue(run(scenario()).startswith("app"))
+
+    def test_unprefixed_call_does_offload(self):
+        async def scenario():
+            loop = asyncio.get_running_loop()
+            seen = []
+            original = loop.run_in_executor
+
+            async def spy(executor, fn, *a):
+                seen.append(1)
+                return await original(executor, fn, *a)
+
+            with mock.patch.object(loop, "run_in_executor", spy):
+                word = await words_mod.get_random_word_async()
+            return seen, word
+
+        seen, word = run(scenario())
+        self.assertEqual(len(seen), 1, "unprefixed pick should run in the executor")
+        self.assertIn(word, {"apple", "apply", "banana", "pear", "zebra"})
+
+    def test_every_mode_still_initialises_through_the_async_picker(self):
+        """running_initialization is a coroutine; the game modes await the pick.
+
+        The fixture must contain words at least as long as the strictest mode's
+        limit, otherwise the pick legitimately returns None and the mode's own
+        .capitalize() fails. Hard mode asks for MAX_WORD_LENGTH_LIMIT (10).
+        """
+        player = Player(make_user())
+        Words.dawg = CompletionDAWG([
+            "apple", "banana", "pear", "zebra",
+            "extraordinary", "communication", "understanding", "professional",
+        ])
+        Words.count = 8
+        for mode in DICTIONARY_DEPENDENT:
+            if mode.__name__ == "MixedEliminationGame":
+                continue  # random mode selection; covered by the round-trip test
+            with self.subTest(mode=mode.__name__):
+                game = mode(-100666)
+                game.players = [player] * 2
+                game.players_in_game = [player] * 2
+                game.state = 1
+                with mock.patch.object(type(game), "send_message", new=mock.AsyncMock()):
+                    run(game.running_initialization())
+                self.assertIsNotNone(game.current_word)
 
 
 if __name__ == "__main__":

@@ -7,7 +7,7 @@ from aiogram import types
 from aiogram.enums import ParseMode
 
 from chainnokizuna.models.game.classic import ClassicGame
-from chainnokizuna.services.words import get_random_word
+from chainnokizuna.services.words import get_random_word, get_random_word_async
 
 
 class RequiredLetterGame(ClassicGame):
@@ -54,6 +54,7 @@ class RequiredLetterGame(ClassicGame):
             await self.vp_answer()
 
     def get_random_valid_answer(self) -> Optional[str]:
+        # Prefixed, so ~0.1ms; synchronous to avoid awaiting inside answer_lock.
         return get_random_word(
             min_len=self.min_letters_limit,
             prefix=self.current_word[-1],
@@ -80,7 +81,7 @@ class RequiredLetterGame(ClassicGame):
 
     async def running_initialization(self) -> None:
         # Random starting word
-        self.current_word = get_random_word(min_len=self.min_letters_limit)
+        self.current_word = await get_random_word_async(min_len=self.min_letters_limit)
         self.used_words.add(self.current_word)
         self.change_required_letter()
         self.start_time = datetime.now(timezone.utc).replace(microsecond=0)

@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from aiogram.enums import ParseMode
 
 from chainnokizuna.models.game.classic import ClassicGame
-from chainnokizuna.services.words import get_random_word
+from chainnokizuna.services.words import get_random_word_async
 
 
 class ChaosGame(ClassicGame):
@@ -32,7 +32,7 @@ class ChaosGame(ClassicGame):
 
     async def running_initialization(self) -> None:
         # Random starting word
-        self.current_word = get_random_word(min_len=self.min_letters_limit)
+        self.current_word = await get_random_word_async(min_len=self.min_letters_limit)
         self.used_words.add(self.current_word)
         self.start_time = datetime.now(timezone.utc).replace(microsecond=0)
 

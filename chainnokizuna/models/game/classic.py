@@ -15,7 +15,7 @@ from chainnokizuna.models.player import Player
 from chainnokizuna.core.resources import GlobalState, bot, vp_bot, get_db
 from chainnokizuna.utils.keyboards import get_add_vp_to_group_keyboard
 from chainnokizuna.utils.telegram import send_admin_group
-from chainnokizuna.services.words import check_word_existence, get_random_word
+from chainnokizuna.services.words import check_word_existence, get_random_word, get_random_word_async
 from chainnokizuna.utils.timer import GameTimer
 
 logger = logging.getLogger(__name__)
@@ -451,6 +451,8 @@ class ClassicGame:
             await self.vp_answer()
 
     def get_random_valid_answer(self) -> Optional[str]:
+        # Prefixed, so ~0.1ms; stays synchronous because vp_answer runs inside
+        # answer_lock and an await here would widen that critical section.
         return get_random_word(
             min_len=self.min_letters_limit,
             prefix=self.current_word[-1],
@@ -576,7 +578,7 @@ class ClassicGame:
 
     async def running_initialization(self) -> None:
         # Random starting word
-        self.current_word = get_random_word(min_len=self.min_letters_limit)
+        self.current_word = await get_random_word_async(min_len=self.min_letters_limit)
         self.used_words.add(self.current_word)
         self.start_time = datetime.now(timezone.utc).replace(microsecond=0)
 

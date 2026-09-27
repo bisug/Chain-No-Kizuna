@@ -7,7 +7,7 @@ from aiogram.enums import ParseMode
 from chainnokizuna.models.game.classic import ClassicGame
 from chainnokizuna.models.player import Player
 from config import GameSettings, GameState
-from chainnokizuna.services.words import get_random_word
+from chainnokizuna.services.words import get_random_word_async
 
 
 class EliminationGame(ClassicGame):
@@ -125,7 +125,7 @@ class EliminationGame(ClassicGame):
 
     async def running_initialization(self) -> None:
         # Random starting word
-        self.current_word = get_random_word()
+        self.current_word = await get_random_word_async()
         self.used_words.add(self.current_word)
         self.start_time = datetime.now(timezone.utc).replace(microsecond=0)
 

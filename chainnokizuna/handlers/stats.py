@@ -13,6 +13,14 @@ import math
 router = Router(name=__name__)
 router.message.filter(IsMainBot())
 
+# Leaderboard paging: the total-count scan and deep skips are both linear in
+# the number of winning players, so both are bounded rather than left to grow
+# with the player base.
+_LEADERBOARD_COUNT_TTL = 30  # seconds
+_MAX_LEADERBOARD_PAGE = 100
+_leaderboard_count_cache: Optional[int] = None
+_leaderboard_total_at: float = 0.0
+
 
 @router.message(Command("stat", "stats", "stalk"))
 async def cmd_stats(message: types.Message) -> None:
@@ -165,14 +173,23 @@ async def topseekers_callback(callback: types.CallbackQuery) -> None:
 async def get_leaderboard_page(page: int) -> Tuple[str, types.InlineKeyboardMarkup]:
     db = get_db()
     limit = 10
-    skip = (page - 1) * limit
-    
-    # Get total count for pagination
-    total_count = await db.players.count_documents({"guess_word_wins": {"$gt": 0}})
+
+    # total_count is a full scan of the winning players, and it was re-run on
+    # every page click. Cache it briefly; the leaderboard moves slowly and a
+    # slightly stale page count is harmless.
+    global _leaderboard_count_cache, _leaderboard_total_at
+    now = time.time()
+    total_count = _leaderboard_count_cache
+    if total_count is None or (now - _leaderboard_total_at) > _LEADERBOARD_COUNT_TTL:
+        total_count = await db.players.count_documents({"guess_word_wins": {"$gt": 0}})
+        _leaderboard_count_cache = total_count
+        _leaderboard_total_at = now
+
     max_pages = max(1, math.ceil(total_count / limit))
-    
-    # Clamp page
-    page = max(1, min(page, max_pages))
+
+    # Clamp page. Bounding the depth keeps a stale deep link from asking
+    # Mongo for a large skip, which costs O(skip) even with an index.
+    page = max(1, min(page, max_pages, _MAX_LEADERBOARD_PAGE))
     skip = (page - 1) * limit
 
     cursor = db.players.find({"guess_word_wins": {"$gt": 0}}).sort("guess_word_wins", -1).skip(skip).limit(limit)
