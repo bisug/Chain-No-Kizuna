@@ -54,7 +54,13 @@ Compared to the original repository, this fork introduces significant architectu
   - Native compatibility with **Heroku Workers**.
   - Optimized for 24/7 reliability with built-in leader election.
 
-◈ **Extended Gameplay**: Added multiple **new game modes** (Elimination, Banned Letters, Required Letters, etc.) and enhanced logic.
+◈ **Extended Gameplay**: **10 game modes** in total — Classic, Hard Mode, Chaos, Chosen/Random First Letter, Banned/Required Letters, Elimination, Mixed Elimination, and Guess the Word.
+
+◈ **Word List Ships With the Bot**: the dictionary is a committed file, not a runtime download. The accepted word set is fixed by the commit and cannot break because a remote host is down. Rebuild it by hand with `tools/build_wordlist.py`.
+
+◈ **Curated Word Pools**: the bot picks its own words (opening word, Virtual Player replies) from small, everyday-word pools instead of the full 367k list, so it never opens a game on an obscure word. Player input is still validated against the full list, so a pool never narrows the game.
+
+◈ **Test Suite & CI**: 119 stdlib `unittest` tests plus a `ruff` gate run on every push and pull request.
 
 ---
 
@@ -67,9 +73,11 @@ Compared to the original repository, this fork introduces significant architectu
 ◈ [Architecture](#architecture)
 ◈ [Project Structure](#project-structure)
 ◈ [Installation](#installation)
+◈ [Word List](#word-list)
 ◈ [Usage](#usage)
 ◈ [Configuration](#configuration)
 ◈ [Customization](#customization)
+◈ [Testing](#testing)
 ◈ [Deployment Guide](#deployment-guide)
 ◈ [License](#license)
 
@@ -79,39 +87,53 @@ Compared to the original repository, this fork introduces significant architectu
 
 ### Diverse Game Modes
 
-◈ **Classic**: The standard turn-based experience with strict word validation.
+Ten modes, all resolvable by the same `/start<mode>` handler:
 
-◈ **Chaos**: High-speed play with randomized turn intervals.
+◈ **Classic** (`/startclassic`): The standard turn-based experience with strict word validation.
 
-◈ **Elimination**: Survival mode where players are dropped based on performance.
+◈ **Hard Mode** (`/starthard`): Reduced timers and stricter length requirements.
 
-◈ **Banned/Required Letters**: Specialized character constraints for advanced difficulty.
+◈ **Chaos** (`/startchaos`): High-speed play with randomized turn intervals.
 
-◈ **Hard Mode**: Reduced timers and stricter length requirements.
+◈ **Chosen First Letter** (`/startcfl`) and **Random First Letter** (`/startrfl`): Fix or randomize the letter the game opens on.
+
+◈ **Banned / Required Letters** (`/startbl`, `/startrl`): Character constraints for advanced difficulty.
+
+◈ **Elimination** (`/startelim`) and **Mixed Elimination** (`/startmelim`): Survival modes where the lowest-scoring players are dropped after each round. Mixed Elimination is a restricted reward, gated to `VIP` users and `VIP_GROUP` chats.
+
+◈ **Guess the Word** (`/startguess`, alias `/new`): Solve a hidden 5-letter word against the bundled puzzle dictionary. Does not need the word-list DAWG.
 
 ### Performance & Intelligence
 
-◈ **DAWG Engine**: Uses a *Directed Acyclic Word Graph* for $O(1)$ prefix searching and existence checks.
+◈ **DAWG Engine**: Uses a *Directed Acyclic Word Graph* for $O(1)$ prefix searching and existence checks, rebuilt in an executor thread so it never blocks the event loop.
 
-◈ **Leader Election**: Integrated support for multiple bot instances; a Redis-based lock ensures only one "Leader" handles Telegram polling at a time.
+◈ **Leader Election**: Integrated support for multiple bot instances; a Redis-based lock (10s TTL, renewed every 5s) ensures only one "Leader" handles Telegram polling at a time.
 
 ◈ **State Restoration**: Automatically resumes active games after a restart or crash using persistent Redis session data.
 
-◈ **HTML Native**: Premium UI rendering across all Telegram clients.
+◈ **HTML Native**: Premium UI rendering across all Telegram clients, with dynamic text escaped before it is rendered as HTML.
+
+◈ **Custom Error Reporting**: Unhandled exceptions are logged and reported to the admin group instead of disappearing into the log.
 
 ---
 
 ## | Tech Stack
 
-◈ **Runtime**: Python 3.14 (Slim)
+◈ **Runtime**: Python 3.14.7 (`requires-python >= 3.14`)
 
-◈ **Framework**: [aiogram 3.x](https://github.com/aiogram/aiogram) (Asynchronous Telegram API)
+◈ **Package Manager**: [uv](https://docs.astral.sh/uv/) (`uv.lock` is committed; builds use `uv sync --frozen`)
 
-◈ **Database**: [MongoDB](https://www.mongodb.com/) (Stats & Archives)
+◈ **Framework**: [aiogram 3.31.0](https://github.com/aiogram/aiogram) (Asynchronous Telegram API)
 
-◈ **Cache**: [Redis](https://redis.io/) (Session Management & HA Locks)
+◈ **Dictionary**: [dawg2](https://pypi.org/project/dawg2/) `CompletionDAWG`
 
-◈ **Optimization**: `orjson` for ultra-fast serialization.
+◈ **Database**: [MongoDB](https://www.mongodb.com/) via `pymongo`'s async client (Stats & Archives)
+
+◈ **Cache**: [Redis](https://redis.io/) via `redis-py` asyncio (Session Management & HA Locks)
+
+◈ **Optimization**: `orjson` for serialization, `aiofiles` for the word-list load, `psutil` for the `/ping` runtime report
+
+◈ **Tests**: stdlib `unittest`; `ruff` (F, E9 rules) as the lint gate
 
 ---
 
@@ -138,50 +160,64 @@ graph TD
 ## | Project Structure
 
 ```text
-c:\Users\HP\Downloads\WORD\on9wordchainbot
+Chain-No-Kizuna/
 ├── chainnokizuna/
 │   ├── handlers/            # Telegram command & message handlers
-│   │   ├── gameplay.py      # Core mechanics (start, join, flee, end)
-│   │   ├── info.py          # Help, ping, and diagnostic tools
-│   │   ├── misc.py          # Maintenance mode & feedback utilities
+│   │   ├── gameplay.py      # Core mechanics (start, join, flee, end, VP)
+│   │   ├── info.py          # Help, game info, ping, run info, chat id
+│   │   ├── misc.py          # Maintenance mode, feedback, leave, db status
 │   │   ├── stats.py         # Player, group, and global statistics
-│   │   └── wordlist.py      # Dictionary & DAWG word management
+│   │   ├── wordlist.py      # Dictionary & DAWG word management
+│   │   └── errors.py        # Global exception handler & admin reporting
+│   ├── core/resources.py    # Bot, Mongo, Redis clients & global state
+│   ├── db/redis.py          # Game state persistence & restoration
 │   ├── models/              # Game logic & player data structures
-│   │   ├── game/            # Specific game variants
+│   │   ├── game/            # Ten game variants, one module each
 │   │   │   ├── banned_letters.py
 │   │   │   ├── chaos.py
+│   │   │   ├── chosen_first_letter.py
 │   │   │   ├── classic.py
 │   │   │   ├── elimination.py
 │   │   │   ├── guess_the_word.py
 │   │   │   ├── hard_mode.py
+│   │   │   ├── mixed_elimination.py
+│   │   │   ├── random_first_letter.py
 │   │   │   └── required_letter.py
 │   │   └── player.py        # Player state & session management
 │   ├── services/            # Infrastructure services
 │   │   ├── leader.py        # Redis-based High Availability lock
-│   │   └── words.py         # DAWG Engine & word validation
+│   │   └── words.py         # DAWG Engine, word pools & word validation
 │   ├── utils/               # Shared helper functions
+│   │   ├── commands.py      # Telegram command-menu publication
+│   │   ├── decorators.py    # Private-only / group-only command guards
 │   │   ├── keyboards.py     # Keyboard & UI builders
+│   │   ├── telegram.py      # Admin-group reporting helpers
 │   │   └── timer.py         # Asynchronous game timers
+│   ├── filters.py           # Owner / admin / has-game / main-bot filters
+│   ├── data/                # Bundled word data
+│   │   ├── wordlist.txt     # Full dictionary the bot validates against
+│   │   ├── commonwords.json # Curated everyday words for the bot's own picks
+│   │   ├── fiveletters.json # All 5-letter words
+│   │   ├── all-five.json        # 5-letter answer set (Guess the Word)
+│   │   └── commonfiveletterwords.json  # 5-letter words with meanings
 │   └── __main__.py          # Application entry point
+├── tests/                   # stdlib unittest suite (119 tests)
+├── tools/build_wordlist.py  # Rebuilds data/wordlist.txt from upstream sources
 ├── config.py                # Global settings & game balance
-├── chainnokizuna/data/      # Bundled word lists
-│   ├── wordlist.txt         # Full dictionary the bot validates against
-│   ├── commonwords.json     # Curated everyday words for the bot's own picks
-│   ├── fiveletters.json     # All 5-letter words
-│   ├── all-five.json        # 5-letter validation set (Guess the Word mode)
-│   └── commonfiveletterwords.json  # 5-letter words with meanings & examples
 ├── LICENSE                  # MIT License file
-├── Dockerfile               # Containerization manifest
+├── Dockerfile               # Containerization manifest (multi-stage, non-root)
 ├── .dockerignore            # Files excluded from Docker builds
 ├── .gitignore               # Files excluded from Git versioning
 ├── app.json                 # Heroku deployment manifest
+├── heroku.yml               # Heroku container (Docker) deployment
 ├── Procfile                 # Heroku process configuration
-├── pyproject.toml           # Project metadata & dependencies
+├── pyproject.toml           # Project metadata & pinned dependencies
 ├── uv.lock                  # Pinned dependency lockfile (required by `uv sync --frozen`)
-├── .python-version          # Pinned CPython version for uv
+├── .python-version          # Pinned CPython version (3.14.7) for uv
 ├── .env.template            # Environment variable template
-└── .github/workflows/       # CI workflows
-```
+└── .github/
+    ├── dependabot.yml       # Weekly uv lockfile updates
+    └── workflows/           # CI: tests.yml (unittest + ruff), security scan
 
 ## | Frameworks & Tools
 
@@ -220,12 +256,13 @@ This project exists thanks to all the people who contribute.
    cd Chain-No-Kizuna
    ```
 
-2. **Initialize Environment**:
+2. **Install Dependencies** (Python 3.14 required):
    ```bash
-   python -m venv venv
-   source venv/bin/activate  # Windows: venv\Scripts\activate
-   pip install -r requirements.txt
+   pip install uv
+   uv sync --frozen   # installs into .venv/ from the committed uv.lock
    ```
+   ◈ *`uv sync` creates and uses `.venv/` automatically, so there is no separate `venv`
+   activation step. Use `uv run <command>` to execute inside that environment.*
 
 3. **Configure Settings**:
    ```bash
@@ -235,8 +272,30 @@ This project exists thanks to all the people who contribute.
 
 4. **Run the Bot**:
    ```bash
-   python -m chainnokizuna
+   uv run python -m chainnokizuna
    ```
+
+◈ **Note**: `TOKEN`, `MONGO_URI`, `REDIS_URL`, and `OWNER_ID` have no in-code defaults. The bot refuses to start if any of them is missing, rather than falling back to a hardcoded value.
+
+---
+
+## | Word List
+
+The dictionary is **committed to the repository** (`chainnokizuna/data/wordlist.txt`, ~367,000 words, one lowercase word per line) instead of being downloaded at startup. The accepted word set is therefore fixed by the commit and cannot fail because a remote host is down or changes under the bot.
+
+◈ **`wordlist.txt`** — the authority on what counts as a real word. All player input is validated against it.
+
+◈ **`commonwords.json`** (9,533 words) / **`fiveletters.json`** (14,240 words) — curated pools used only for words the *bot* chooses for itself (the opening word and Virtual Player replies). The full list stays the validator, so a pool can never make a legitimate word "not in my list of words".
+
+◈ **`all-five.json`** (23,829 words) / **`commonfiveletterwords.json`** (2,318 words) — the Guess the Word puzzle set, which runs on its own files instead of the DAWG.
+
+### Rebuilding the list
+
+```bash
+uv run python tools/build_wordlist.py
+```
+
+The script fetches its upstream sources, strips proper nouns that no other dictionary endorses, adds the inflections the headword list is missing, rebuilds the two pools from the cleaned list, and then verifies the result against a real `CompletionDAWG` (including checking that `aaron` and `aberdeen` are gone and `email` survived) before writing anything.
 
 ---
 
@@ -249,26 +308,30 @@ Use these commands to start a specific game variant.
 
 | Command | Variant | Description |
 | :--- | :--- | :--- |
-| `/startclassic` | Classic | Standard word chain game. |
+| `/startclassic` | Classic | Standard word chain game. Also aliased as `/startgame`. |
 | `/starthard` | Hard Mode | Reduced timers and stricter limits. |
 | `/startchaos` | Chaos | Randomized intervals and high-speed play. |
-| `/startelim` | Elimination | Players with lowest scores are removed. |
-| `/startmelim` | Mixed Elim | A challenging combination of elimination logic. |
-| `/startbl` | Banned Letters | Prevents using specific characters. |
-| `/startrl` | Required Letter | Forces the use of a specific character. |
 | `/startcfl` | Chosen First | Pick the starting letter of the match. |
 | `/startrfl` | Random First | Bot picks a random starting letter. |
-| `/startguess` | Guess Word | Solve the hidden word puzzle. |
+| `/startbl` | Banned Letters | Prevents using specific characters. |
+| `/startrl` | Required Letter | Forces the use of a specific character. |
+| `/startelim` | Elimination | Players with the lowest scores are removed each round. |
+| `/startmelim` | Mixed Elim | Elimination with a restricted reward; needs `VIP` or `VIP_GROUP`. |
+| `/startguess` | Guess Word | Solve the hidden 5-letter word. |
 | `/new` | (Alias) | Shortcut for Guess the Word mode. |
+
+◈ **Note**: Any `/start<mode>` command not in this list is answered with "Unknown game mode", and dictionary-backed modes refuse to start if the word list failed to load.
 
 ### ◈ 2. Gameplay Actions
 Active controls for players currently in a match.
 
 | Command | Description |
 | :--- | :--- |
-| `/join` | Join the entry phase of a match. |
+| `/join` | Join the entry phase of a match (group chats only). |
 | `/flee` | Voluntarily leave an active match. |
-| `/extend` | Add 30 seconds to the joining phase. |
+| `/extend` | Add 30 seconds to the joining phase. Each player may extend once; admins can pass a signed number of seconds. |
+| `/addvp` | Add a Virtual Player, if `VP_TOKEN` is configured. Players in the match, admins, and the owner may do this. |
+| `/remvp` | Remove the Virtual Player. |
 | `/stats` | View your detailed stats (Aliases: `/stat`, `/stalk`). |
 | `/top` | View global leaderboard (Aliases: `/leaderboard`, `/topseekers`). |
 
@@ -296,20 +359,18 @@ Commands for interacting with the DAWG engine.
 | `/reqaddword` | Request a new word addition (Alias: `/reqaddwords`). |
 
 ### ◈ 5. Administrative Control
-Restricted to Group Admins or the Bot Owner.
+Access is enforced by the bot: `Owner` matches only `OWNER_ID`, `Admin` matches the owner or a Telegram chat admin of the current group.
 
 | Command | Access | Description |
 | :--- | :--- | :--- |
-| `/end` | Admin | Terminate the current local game. |
-| `/forcestart` | Admin | Start the game immediately. |
-| `/addvp` | Admin | Add a Virtual Player (Bot) to the game. |
-| `/remvp` | Admin | Remove the Virtual Player. |
+| `/end` | Admin | Terminate the game in the current group. |
+| `/forcestart` | Admin | Skip the rest of the joining phase. |
 | `/forceskip` | Owner | Force-skip the current player's turn. |
 | `/forcejoin` | Owner | Force-add a user to the match. |
 | `/forceflee` | Owner | Force-remove a user from the match. |
-| `/killgame` | Owner | Global emergency stop for all games. |
+| `/killgame` | Owner | Emergency stop for all games (Alias: `/killgaym`). |
 | `/maintmode` | Owner | Toggle global maintenance/update mode. |
-| `/addword` | Owner | Instantly add a word to the DAWG. |
+| `/addword` | Owner | Add a word to the DAWG (Alias: `/addwords`). |
 | `/rejword` | Owner | Reject a pending word addition. |
 | `/leave` | Owner | Force the bot to leave the group. |
 | `/db` | Owner | Inspect MongoDB/Redis status (Alias: `/mongo`). |
@@ -374,14 +435,56 @@ You can fine-tune the bot's behavior by modifying the `GameSettings` class in `c
 
 | Setting | Description | Default |
 | :--- | :--- | :--- |
+| **Joining phase** | | |
+| `JOINING_PHASE_SECONDS` | Time players have to `/join`. | `60` |
+| `MAX_JOINING_PHASE_SECONDS` | Ceiling on the phase after `/extend` calls. | `180` |
+| `JOINING_PHASE_WARNINGS` | Remaining seconds at which a countdown warning is sent. | `(15, 30, 60)` |
+| **Room size** | | |
 | `MIN_PLAYERS` | Minimum players needed to start a game. | `2` |
 | `MAX_PLAYERS` | Maximum players allowed in a standard room. | `50` |
-| `MIN_TURN_SECONDS` | Fastest possible turn timer (Hard Mode). | `20s` |
-| `MAX_TURN_SECONDS` | Slowest possible turn timer (Classic). | `40s` |
-| `MIN_WORD_LENGTH` | Global minimum length for any word. | `3` |
-| `JOINING_PHASE` | Time (seconds) players have to `/join`. | `60s` |
+| **Turn timer** | | |
+| `MIN_TURN_SECONDS` | Fastest possible turn timer (Hard Mode). | `20` |
+| `MAX_TURN_SECONDS` | Slowest possible turn timer (Classic). | `40` |
+| `TURN_SECONDS_REDUCTION_PER_LIMIT_CHANGE` | Seconds shaved from the timer each time the word-length limit rises. | `5` |
+| **Word length** | | |
+| `MIN_WORD_LENGTH_LIMIT` | Starting minimum length for a player's word. | `3` |
+| `MAX_WORD_LENGTH_LIMIT` | Highest the limit can be raised to during a game. | `10` |
+| `WORD_LENGTH_LIMIT_INCREASE_PER_LIMIT_CHANGE` | How much the minimum length grows per change. | `1` |
+| `TURNS_BETWEEN_LIMITS_CHANGE` | Turns between difficulty increases. | `5` |
+| `MAX_STARTING_WORD_LENGTH` | Longest word a game may open with. | `12` |
+| **Elimination modes** | | |
+| `ELIM_JOINING_PHASE_SECONDS` | Joining phase for elimination games. | `90` |
+| `ELIM_MIN_PLAYERS` | Minimum players to start an elimination game. | `5` |
+| `ELIM_MAX_PLAYERS` | Maximum players in an elimination game. | `30` |
+| `ELIM_TURN_SECONDS` | Turn timer for elimination games. | `30` |
+| `ELIM_MAX_TURN_SCORE` | Cap on a single turn's score. | `20` |
 
-◈ **Note**: After changing these values, a restart of the bot instance is required to apply the new settings.
+◈ **Note**: After changing these values, a restart of the bot instance is required to apply the new settings. Games restored from Redis keep the values captured when they were created, so let existing matches finish before restarting with new balance.
+
+---
+
+## | Testing
+
+The suite is stdlib `unittest` — no test framework dependency to install. It covers the config parser, the error handler, game state round-trips through Redis serialization, the leader election, startup cleanup, the Guess the Word mode, and the word-list/pool loading.
+
+`config.py` reads its secrets at import time, so the four required variables must be present for the suite to run. They are placeholders and are never sent to Telegram.
+
+```bash
+uv sync --frozen
+TOKEN=123456789:CIplaceholderTOKEN000000000000000 \
+MONGO_URI=mongodb://127.0.0.1:27017 \
+REDIS_URL=redis://localhost:6379/0 \
+OWNER_ID=1 \
+uv run --no-sync python -m unittest discover -s tests -t . -v
+```
+
+◈ **Live Redis**: `tests/test_leader.py` includes one test that needs a real Redis server. It is skipped unless `RUN_REDIS_TESTS=1` is set. Export that variable to include it, as `.github/workflows/tests.yml` does (it starts a `redis:8-alpine` service container).
+
+◈ **Lint**: the CI gate is `ruff` restricted to real errors, not style:
+
+```bash
+uvx ruff@latest check --no-cache --select F,E9 chainnokizuna config.py tests
+```
 
 ---
 
@@ -412,13 +515,14 @@ For 24/7 reliability on Ubuntu/Debian, use `systemd`:
 1. **Install Dependencies**:
    ```bash
    sudo apt update && sudo apt install python3-pip python3-venv redis-server -y
+   # MongoDB is also required: use a local mongod, a Docker container, or a remote Atlas cluster.
    ```
 
 2. **Setup Project**:
    ```bash
    git clone https://github.com/bisug/Chain-No-Kizuna.git && cd Chain-No-Kizuna
-   python3 -m venv venv
-   ./venv/bin/pip install -r requirements.txt
+   pip install --user uv
+   uv sync --frozen
    cp .env.template .env # Fill with variables from the Configuration section
    ```
 
@@ -431,13 +535,16 @@ For 24/7 reliability on Ubuntu/Debian, use `systemd`:
 
    [Service]
    WorkingDirectory=/home/youruser/Chain-No-Kizuna
-   ExecStart=/home/youruser/Chain-No-Kizuna/venv/bin/python3 -m chainnokizuna
+   ExecStart=/home/youruser/Chain-No-Kizuna/.venv/bin/python -m chainnokizuna
    EnvironmentFile=/home/youruser/Chain-No-Kizuna/.env
    Restart=always
 
    [Install]
    WantedBy=multi-user.target
    ```
+
+   ◈ *`uv sync` builds the environment in `.venv/`, so `ExecStart` points at
+   `.venv/bin/python` — not a `venv/` directory created by hand.*
 
 4. **Start Service**:
    ```bash
@@ -464,6 +571,12 @@ For 24/7 reliability on Ubuntu/Debian, use `systemd`:
    ```
 
 ◈ **Note**: Ensure your `REDIS_URL` and `MONGO_URI` point to accessible instances (e.g., using `host.docker.internal` or external cloud URLs).
+
+◈ The image is multi-stage: dependencies are installed with `uv sync --frozen` in a builder stage, and the runtime stage runs as the unprivileged `kizuna` user with the CPython JIT enabled.
+
+◈ **Compose tip**: give the container `--add-host=host.docker.internal:host-gateway` (or the equivalent on your platform) so `MONGO_URI` and `REDIS_URL` can reach services running on the Docker host.
+
+---
 
 ## | Platform Compatibility & Support
 
