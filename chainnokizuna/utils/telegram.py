@@ -21,7 +21,7 @@ async def send_admin_group(*args: Any, **kwargs: Any) -> types.Message | None:
         return None
 
 
-def awaitable_to_coroutine(awaitable: Awaitable[T]) -> Coroutine[Any, Any, T]:
+def awaitable_to_coroutine[T](awaitable: Awaitable[T]) -> Coroutine[Any, Any, T]:
     # Convert awaitable like aiogram TelegramMethod to a coroutine
     # so that it can be used in asyncio.create_task()
     async def _runner() -> T:

@@ -243,7 +243,7 @@ class ClassicGame:
             if "CHAT_ADMIN_REQUIRED" in str(e):
                 is_adm = False
             else:
-                raise e
+                raise
 
         # Any group member can reach this via /extend, so the cache is not
         # bounded by the admin count. Cap it and evict oldest-first; dicts

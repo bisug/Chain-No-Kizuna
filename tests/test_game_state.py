@@ -41,7 +41,7 @@ class TestSerializationRoundTrip(unittest.TestCase):
     def test_every_mode_round_trips(self):
         for mode in GAME_MODES:
             with self.subTest(mode=mode.__name__):
-                data, back = self._round_trip(mode)
+                _data, back = self._round_trip(mode)
                 self.assertEqual(type(back), mode)
                 self.assertEqual(back.group_id, -100777)
                 self.assertEqual(back.current_word, "apple")
@@ -435,7 +435,7 @@ class TestWordlistRejectionLookupIsTargeted(unittest.TestCase):
     def test_skips_the_query_when_everything_is_already_in_the_dawg(self):
         words = ["apple", "pear"]
         with mock.patch.object(self.mod, "check_word_existence", return_value=True):
-            existing, rejected, with_reason = run(
+            existing, _rejected, _with_reason = run(
                 self.mod._collect_rejections(self._db([]), words)
             )
         self.assertEqual(self.queries, [], "no query when nothing is left to look up")

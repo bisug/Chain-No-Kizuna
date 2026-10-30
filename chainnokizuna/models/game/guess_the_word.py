@@ -88,7 +88,7 @@ class GuessTheWordGame(ClassicGame):
                 "chainnokizuna/data/commonfiveletterwords.json", "rb"
             ) as f:
                 target_data = orjson.loads(await f.read())
-            target_dictionary = [w.lower() for w in target_data.keys() if len(w) == 5]
+            target_dictionary = [w.lower() for w in target_data if len(w) == 5]
             self.target_word = random.choice(target_dictionary)
         except Exception as e:
             logger.error(f"Failed to load target data: {e}")
@@ -254,10 +254,9 @@ class GuessTheWordGame(ClassicGame):
 
         # Second pass: Yellow
         for i in range(5):
-            if guess_list[i] is not None:
-                if guess_list[i] in target_list:
-                    hints[i] = "🟨"
-                    target_list[target_list.index(guess_list[i])] = None  # Mark as used
+            if guess_list[i] is not None and guess_list[i] in target_list:
+                hints[i] = "🟨"
+                target_list[target_list.index(guess_list[i])] = None  # Mark as used
 
         return "".join(hints)
 

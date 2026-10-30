@@ -25,7 +25,7 @@ class IsAdmin(Filter):
             if "CHAT_ADMIN_REQUIRED" in str(e):
                 return False
             else:
-                raise e
+                raise
         else:
             return isinstance(member, ADMINS)
 
