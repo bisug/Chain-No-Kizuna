@@ -13,11 +13,11 @@ import pathlib
 import unittest
 from unittest import mock
 
-from config import GameState
 from chainnokizuna.models.game import guess_the_word as gtw_mod
 from chainnokizuna.models.game.classic import ClassicGame
 from chainnokizuna.models.game.guess_the_word import GuessTheWordGame
 from chainnokizuna.models.player import Player
+from config import GameState
 from tests.helpers import make_message, make_user, run
 
 SOURCE = pathlib.Path(gtw_mod.__file__)
@@ -138,7 +138,7 @@ class TestUpdateDbParticipantSchema(unittest.TestCase):
         game.players = [player]
         game.players_in_game = [player]
         game.state = GameState.RUNNING
-        game.start_time = datetime.datetime.now(datetime.timezone.utc)
+        game.start_time = datetime.datetime.now(datetime.UTC)
 
         async def scenario():
             # classic.py imports get_db at module level, guess_the_word.py

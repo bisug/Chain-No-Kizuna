@@ -1,15 +1,16 @@
 import logging
-from typing import Any, Awaitable, Coroutine, Optional, TypeVar
+from collections.abc import Awaitable, Coroutine
+from typing import Any, TypeVar
 
 from aiogram import types
 
-from config import ADMIN_GROUP_ID
 from chainnokizuna.core.resources import bot
+from config import ADMIN_GROUP_ID
 
 T = TypeVar("T")
 
 
-async def send_admin_group(*args: Any, **kwargs: Any) -> Optional[types.Message]:
+async def send_admin_group(*args: Any, **kwargs: Any) -> types.Message | None:
     try:
         if not ADMIN_GROUP_ID:
             return None

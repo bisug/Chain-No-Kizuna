@@ -1,7 +1,6 @@
-import logging
 import asyncio
+import logging
 import time
-from typing import Optional
 
 from chainnokizuna.core.resources import get_vk
 
@@ -21,7 +20,7 @@ class LeaderElection:
     def __init__(self, bot_id: str):
         self.bot_id = bot_id
         self._is_leader = False
-        self._renew_task: Optional[asyncio.Task] = None
+        self._renew_task: asyncio.Task | None = None
 
     @property
     def is_leader(self) -> bool:
@@ -77,7 +76,7 @@ class LeaderElection:
 
     async def _renew_loop(self):
         consecutive_failures = 0
-        first_failure_at: Optional[float] = None
+        first_failure_at: float | None = None
         while self._is_leader:
             await asyncio.sleep(self.RENEW_INTERVAL)
             try:

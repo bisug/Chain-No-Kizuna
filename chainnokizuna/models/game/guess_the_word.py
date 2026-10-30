@@ -1,15 +1,14 @@
-import orjson
-import random
-import logging
 import asyncio
-from typing import Optional
-from datetime import datetime, timezone
+import logging
+import random
+from datetime import UTC, datetime
 
-from aiogram import types, html
+import orjson
+from aiogram import html, types
 from aiogram.enums import ParseMode
 
+from chainnokizuna.core.resources import GlobalState, bot
 from chainnokizuna.models.game.classic import ClassicGame
-from chainnokizuna.core.resources import bot, GlobalState
 from chainnokizuna.services.words import is_word
 from config import GameState
 
@@ -23,13 +22,13 @@ class GuessTheWordGame(ClassicGame):
     requires_word_list = False
 
     __slots__ = (
-        "target_word",
-        "guess_count",
-        "max_guesses",
-        "guess_history",
         "dictionary",
+        "guess_count",
+        "guess_history",
         "last_waiting_msg_id",
+        "max_guesses",
         "state_lock",
+        "target_word",
     )
 
     def __init__(self, group_id: int) -> None:
@@ -41,7 +40,7 @@ class GuessTheWordGame(ClassicGame):
         self.dictionary: list[str] = []
         self.allow_any_player_answer = True
         self.time_limit = 60
-        self.last_waiting_msg_id: Optional[int] = None
+        self.last_waiting_msg_id: int | None = None
         self.state_lock = asyncio.Lock()
 
     def to_dict(self) -> dict:
@@ -58,7 +57,7 @@ class GuessTheWordGame(ClassicGame):
         return data
 
     @classmethod
-    def from_dict(cls, data: dict) -> "GuessTheWordGame":
+    def from_dict(cls, data: dict) -> GuessTheWordGame:
         game = super().from_dict(data)
         game.target_word = data.get("target_word", "")
         game.guess_count = data.get("guess_count", 0)
@@ -95,7 +94,7 @@ class GuessTheWordGame(ClassicGame):
             logger.error(f"Failed to load target data: {e}")
             raise ValueError("Could not load target word database.")
 
-        self.start_time = datetime.now(timezone.utc).replace(microsecond=0)
+        self.start_time = datetime.now(UTC).replace(microsecond=0)
         self.guess_count = 0
         self.guess_history = []
         self.accepting_answers = True
@@ -421,7 +420,7 @@ class GuessTheWordGame(ClassicGame):
         )
 
     async def handle_game_end(self) -> None:
-        self.end_time = datetime.now(timezone.utc).replace(microsecond=0)
+        self.end_time = datetime.now(UTC).replace(microsecond=0)
         td = self.end_time - self.start_time
         game_len_str = f"{int(td.total_seconds()) // 3600:02}{str(td)[-6:]}"
 

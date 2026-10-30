@@ -1,18 +1,18 @@
-from aiogram import types, html
+from aiogram import html, types
 
 from chainnokizuna.core.resources import vp_bot
 
 
 class Player:
     __slots__ = (
-        "_username",
         "_name",
-        "user_id",
+        "_username",
         "is_vp",
-        "word_count",
         "letter_count",
         "longest_word",
         "score",
+        "user_id",
+        "word_count",
     )
 
     def __init__(self, user: types.User) -> None:
@@ -49,7 +49,7 @@ class Player:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "Player":
+    def from_dict(cls, data: dict) -> Player:
         """Reconstruct a Player from serialized data without needing a types.User."""
         player = object.__new__(cls)
         player._username = data.get("username")
@@ -76,11 +76,11 @@ class Player:
         return f"<a href='tg://user?id={self.user_id}'>{html.quote(self._name)}</a>"
 
     @classmethod
-    async def create(cls, user: types.User) -> "Player":
+    async def create(cls, user: types.User) -> Player:
         return Player(user)
 
     @staticmethod
-    async def vp() -> "Player":
+    async def vp() -> Player:
         if vp_bot is None:
             raise RuntimeError("Virtual player bot is not enabled.")
         vp_user = await vp_bot.me()

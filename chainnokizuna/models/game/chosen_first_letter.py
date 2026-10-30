@@ -1,5 +1,5 @@
 import random
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from string import ascii_lowercase
 
 from aiogram.enums import ParseMode
@@ -21,7 +21,7 @@ class ChosenFirstLetterGame(ClassicGame):
         # Instead of storing the last used word like in other game modes,
         # self.current_word stores in the chosen first letter which is constant throughout the game
         self.current_word = random.choice(ascii_lowercase)
-        self.start_time = datetime.now(timezone.utc).replace(microsecond=0)
+        self.start_time = datetime.now(UTC).replace(microsecond=0)
 
         await self.send_message(
             (

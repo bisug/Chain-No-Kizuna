@@ -1,7 +1,6 @@
 import random
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from string import ascii_lowercase
-from typing import Optional
 
 from aiogram import types
 from aiogram.enums import ParseMode
@@ -20,7 +19,7 @@ class RequiredLetterGame(ClassicGame):
         super().__init__(group_id)
         # Answer must contain required letter.
         # Required letter cannot be the ending letter of self.current_word so as to annoy the player.
-        self.required_letter: Optional[str] = None  # Changes every turn
+        self.required_letter: str | None = None  # Changes every turn
 
     def to_dict(self) -> dict:
         data = super().to_dict()
@@ -28,7 +27,7 @@ class RequiredLetterGame(ClassicGame):
         return data
 
     @classmethod
-    def from_dict(cls, data: dict) -> "RequiredLetterGame":
+    def from_dict(cls, data: dict) -> RequiredLetterGame:
         game = super().from_dict(data)
         game.required_letter = data.get("required_letter")
         return game
@@ -52,7 +51,7 @@ class RequiredLetterGame(ClassicGame):
         if self.players_in_game[0].is_vp:
             await self.vp_answer()
 
-    def get_random_valid_answer(self) -> Optional[str]:
+    def get_random_valid_answer(self) -> str | None:
         # Prefixed, so ~0.1ms; synchronous to avoid awaiting inside answer_lock.
         return get_random_word(
             min_len=self.min_letters_limit,
@@ -87,7 +86,7 @@ class RequiredLetterGame(ClassicGame):
         )
         self.used_words.add(self.current_word)
         self.change_required_letter()
-        self.start_time = datetime.now(timezone.utc).replace(microsecond=0)
+        self.start_time = datetime.now(UTC).replace(microsecond=0)
 
         await self.send_message(
             (

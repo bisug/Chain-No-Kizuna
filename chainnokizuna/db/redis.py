@@ -3,9 +3,10 @@
 Saves active game state to Redis so games can survive bot restarts.
 """
 
-import orjson
 import logging
 from typing import TYPE_CHECKING
+
+import orjson
 
 if TYPE_CHECKING:
     from chainnokizuna.models.game.classic import ClassicGame
@@ -27,16 +28,16 @@ def _get_redis():
 def _get_game_class(type_name: str):
     """Resolve a game class from its type name string."""
     from chainnokizuna.models.game import (
-        ClassicGame,
-        HardModeGame,
+        BannedLettersGame,
         ChaosGame,
         ChosenFirstLetterGame,
-        RandomFirstLetterGame,
-        BannedLettersGame,
-        RequiredLetterGame,
+        ClassicGame,
         EliminationGame,
-        MixedEliminationGame,
         GuessTheWordGame,
+        HardModeGame,
+        MixedEliminationGame,
+        RandomFirstLetterGame,
+        RequiredLetterGame,
     )
 
     mapping = {
@@ -54,7 +55,7 @@ def _get_game_class(type_name: str):
     return mapping.get(type_name)
 
 
-async def save_game(game: "ClassicGame") -> None:
+async def save_game(game: ClassicGame) -> None:
     """Save a game's state to Redis.
 
     This is the per-turn hot path, so it deliberately does not touch the
@@ -150,7 +151,7 @@ async def remove_game(group_id: int) -> None:
                 await asyncio.sleep(0.1 * (attempt + 1))
 
 
-async def load_all_games() -> list["ClassicGame"]:
+async def load_all_games() -> list[ClassicGame]:
     """Load all saved game states from Redis and reconstruct game objects.
 
     The active-games set is the index of which groups to load, but it can fall

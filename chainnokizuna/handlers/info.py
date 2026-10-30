@@ -1,19 +1,18 @@
 import asyncio
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from aiogram import Router, F, types, html
+from aiogram import F, Router, html, types
 from aiogram.enums import ChatType, ParseMode
 from aiogram.filters import Command, CommandStart
 from aiogram.utils.deep_linking import create_start_link
 
 from chainnokizuna.core.resources import GlobalState
-from config import GameState, SUPPORT_GROUP, UPDATE_CHANNEL
-from chainnokizuna.utils.keyboards import inline_keyboard_from_button
-from chainnokizuna.utils.decorators import send_private_only_message
-from chainnokizuna.filters import IsOwner
+from chainnokizuna.filters import IsMainBot, IsOwner
 from chainnokizuna.services.words import Words
-from chainnokizuna.filters import IsMainBot
+from chainnokizuna.utils.decorators import send_private_only_message
+from chainnokizuna.utils.keyboards import inline_keyboard_from_button
+from config import SUPPORT_GROUP, UPDATE_CHANNEL, GameState
 
 router = Router(name=__name__)
 router.message.filter(IsMainBot())
@@ -137,12 +136,12 @@ async def cmd_chatid(message: types.Message) -> None:
 @router.message(Command("runinfo"))
 async def cmd_runinfo(message: types.Message) -> None:
     build_time_str = (
-        "{0.day}/{0.month}/{0.year}".format(GlobalState.build_time)
+        f"{GlobalState.build_time.day}/{GlobalState.build_time.month}/{GlobalState.build_time.year}"
         + " "
         + str(GlobalState.build_time.time())
         + " HKT"
     )
-    uptime = datetime.now(timezone.utc).replace(microsecond=0) - GlobalState.build_time
+    uptime = datetime.now(UTC).replace(microsecond=0) - GlobalState.build_time
     await message.reply(
         f"Build time: <code>{build_time_str}</code>\n"
         f"Uptime: <code>{uptime.days}.{str(uptime).rsplit(maxsplit=1)[-1]}</code>\n"

@@ -1,15 +1,14 @@
 import asyncio
-import aiofiles
 import logging
 import random
 from string import ascii_lowercase
-from typing import Optional
 
+import aiofiles
 import orjson
 from dawg import CompletionDAWG
 
-from config import WORDLIST_FILE, WORD_POOL_FILES
 from chainnokizuna.core.resources import get_db
+from config import WORD_POOL_FILES, WORDLIST_FILE
 
 logger = logging.getLogger(__name__)
 
@@ -130,7 +129,7 @@ async def load_pools() -> None:
         logger.info(f"Word pool {name!r}: {len(Words.pools[name].keys()):,} words")
 
 
-def get_pool(name: Optional[str] = None) -> CompletionDAWG:
+def get_pool(name: str | None = None) -> CompletionDAWG:
     """Returns the DAWG for a named pool, falling back to the full list.
 
     An unknown or unloaded pool name must not return an empty DAWG: that would
@@ -158,13 +157,13 @@ def check_word_existence(word: str) -> bool:
 
 def get_random_word(
     min_len: int = 1,
-    prefix: Optional[str] = None,
-    required_letter: Optional[str] = None,
-    banned_letters: Optional[list[str]] = None,
-    exclude_words: Optional[set[str]] = None,
-    pool: Optional[str] = None,
-    max_len: Optional[int] = None,
-) -> Optional[str]:
+    prefix: str | None = None,
+    required_letter: str | None = None,
+    banned_letters: list[str] | None = None,
+    exclude_words: set[str] | None = None,
+    pool: str | None = None,
+    max_len: int | None = None,
+) -> str | None:
     """
     Retrieves a random word from the dictionary matching specific constraints.
 
@@ -226,7 +225,7 @@ def get_random_word(
     return None
 
 
-async def get_random_word_async(**kwargs) -> Optional[str]:
+async def get_random_word_async(**kwargs) -> str | None:
     """Coroutine wrapper around get_random_word that keeps the event loop free.
 
     The DAWG walk is pure-Python in the filter loop, so the GIL still applies,

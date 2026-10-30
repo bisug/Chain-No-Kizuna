@@ -8,4 +8,4 @@ routers = [
     gameplay.gameplay_router,
 ]
 
-__all__ = ("gameplay", "info", "misc", "stats", "wordlist", "routers")
+__all__ = ("gameplay", "info", "misc", "routers", "stats", "wordlist")

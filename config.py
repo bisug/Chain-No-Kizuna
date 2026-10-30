@@ -3,10 +3,10 @@ Configuration management for the Word Chain bot.
 Handles environment variables, game settings, and global constants.
 """
 
-import orjson
 import logging
 import os
-from typing import Optional
+
+import orjson
 from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
@@ -68,7 +68,7 @@ def get_required(key: str, *aliases: str) -> str:
 # Main Telegram Bot Token from @BotFather
 TOKEN: str = get_required("TOKEN")
 # Virtual Player Bot Token (Optional) from @BotFather
-VP_TOKEN: Optional[str] = os.getenv("VP_TOKEN") or None
+VP_TOKEN: str | None = os.getenv("VP_TOKEN") or None
 
 # --- Database & Cache ---
 # MongoDB connection URI (e.g. from MongoDB Atlas)

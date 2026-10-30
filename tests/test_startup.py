@@ -7,7 +7,7 @@ from unittest import mock
 
 from aiogram import types
 
-import chainnokizuna.core.resources as resources
+from chainnokizuna.core import resources
 from chainnokizuna.core.resources import GlobalState, close_resources
 from tests.helpers import make_message, make_user, run
 

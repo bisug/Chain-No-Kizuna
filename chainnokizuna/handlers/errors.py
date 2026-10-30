@@ -7,8 +7,8 @@ from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramMigrateToChat, TelegramRetryAfter
 
 from chainnokizuna.core.resources import GlobalState, get_db
+from chainnokizuna.utils.telegram import awaitable_to_coroutine, send_admin_group
 from config import GameState
-from chainnokizuna.utils.telegram import send_admin_group, awaitable_to_coroutine
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +78,7 @@ async def error_handler(event: types.ErrorEvent) -> None:
 
     where = group_id if group_id is not None else "idk"
     if isinstance(error, TelegramRetryAfter):
-        body = f"<code>{error.__class__.__name__} @ {where}</code>:\n<pre>{str(error)}</pre>"
+        body = f"<code>{error.__class__.__name__} @ {where}</code>:\n<pre>{error!s}</pre>"
     else:
         body = "<pre>" + "".join(traceback.format_exception(error)) + f"@ {where}</pre>"
 

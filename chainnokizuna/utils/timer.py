@@ -10,7 +10,7 @@ class GameTimer:
     def __init__(self) -> None:
         self.loop = None
 
-    def __aiter__(self) -> "GameTimer":
+    def __aiter__(self) -> GameTimer:
         return self
 
     async def __anext__(self) -> int:
@@ -29,8 +29,7 @@ class GameTimer:
 
         # Ensure we always yield at least 1 tick to prevent infinite fast loops
         # and ensure game progress, but don't let it drift too far ahead.
-        if delta < 1:
-            delta = 1
+        delta = max(delta, 1)
 
         self._ticks_yielded += delta
         return delta

@@ -1,5 +1,5 @@
 import random
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from aiogram.enums import ParseMode
 
@@ -33,7 +33,7 @@ class ChaosGame(ClassicGame):
             await self.pick_starting_word(min_len=self.min_letters_limit)
         )
         self.used_words.add(self.current_word)
-        self.start_time = datetime.now(timezone.utc).replace(microsecond=0)
+        self.start_time = datetime.now(UTC).replace(microsecond=0)
 
         # No turn order
         await self.send_message(

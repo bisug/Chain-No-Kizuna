@@ -2,25 +2,25 @@ import asyncio
 import logging
 import random
 import time
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from aiogram import types
 from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.utils.chat_member import ADMINS, MEMBERS
 
-from config import GameSettings, GameState, OWNER_ID
+from chainnokizuna.core.resources import GlobalState, bot, get_db, vp_bot
 from chainnokizuna.models.player import Player
-from chainnokizuna.core.resources import GlobalState, bot, vp_bot, get_db
-from chainnokizuna.utils.keyboards import get_add_vp_to_group_keyboard
-from chainnokizuna.utils.telegram import send_admin_group
 from chainnokizuna.services.words import (
     check_word_existence,
     get_random_word,
     get_random_word_async,
 )
+from chainnokizuna.utils.keyboards import get_add_vp_to_group_keyboard
+from chainnokizuna.utils.telegram import send_admin_group
 from chainnokizuna.utils.timer import GameTimer
+from config import OWNER_ID, GameSettings, GameState
 
 logger = logging.getLogger(__name__)
 
@@ -42,33 +42,33 @@ class ClassicGame:
     requires_word_list = True
     # Curated pool the bot picks its own words from (opening word, VP replies).
     # None means the full word list. This never restricts what a player may type.
-    word_pool: Optional[str] = "common"
+    word_pool: str | None = "common"
 
     __slots__ = (
-        "group_id",
-        "players",
-        "players_in_game",
-        "state",
-        "start_time",
+        "_admin_cache",
+        "_stale_scan_task",
+        "accepting_answers",
+        "allow_any_player_answer",
+        "answer_lock",
+        "answered",
+        "current_word",
         "end_time",
         "extended_user_ids",
-        "min_players",
-        "max_players",
-        "time_left",
-        "time_limit",
-        "min_letters_limit",
-        "current_word",
+        "group_id",
+        "join_lock",
         "longest_word",
         "longest_word_sender_id",
-        "answered",
-        "accepting_answers",
+        "max_players",
+        "min_letters_limit",
+        "min_players",
+        "players",
+        "players_in_game",
+        "start_time",
+        "state",
+        "time_left",
+        "time_limit",
         "turns",
         "used_words",
-        "join_lock",
-        "answer_lock",
-        "_admin_cache",
-        "allow_any_player_answer",
-        "_stale_scan_task",
     )
 
     def __init__(self, group_id: int) -> None:
@@ -76,8 +76,8 @@ class ClassicGame:
         self.players: list[Player] = []
         self.players_in_game: list[Player] = []
         self.state = GameState.JOINING
-        self.start_time: Optional[datetime] = None
-        self.end_time: Optional[datetime] = None
+        self.start_time: datetime | None = None
+        self.end_time: datetime | None = None
         # Store user ids rather than Player object since players may quit then join to extend again
         self.extended_user_ids: set[int] = set()
 
@@ -89,9 +89,9 @@ class ClassicGame:
         self.min_letters_limit = GameSettings.MIN_WORD_LENGTH_LIMIT
 
         # Game attributes
-        self.current_word: Optional[str] = None
+        self.current_word: str | None = None
         self.longest_word = ""
-        self.longest_word_sender_id: Optional[int] = (
+        self.longest_word_sender_id: int | None = (
             None  # TODO: Change to Player object instead of id
         )
         self.answered = False
@@ -113,7 +113,7 @@ class ClassicGame:
         ] = {}  # user_id -> (cached_at, is_admin)
         # In-flight scan_for_stale_timer task, so repeated triggers are no-ops.
         # Not serialised: it is per-process, and a restore starts no scan.
-        self._stale_scan_task: Optional[asyncio.Task] = None
+        self._stale_scan_task: asyncio.Task | None = None
 
     def to_dict(self) -> dict:
         """Serialize game state for persistence."""
@@ -140,7 +140,7 @@ class ClassicGame:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "ClassicGame":
+    def from_dict(cls, data: dict) -> ClassicGame:
         """Reconstruct a game from serialized data."""
         game = object.__new__(cls)
         game.group_id = data["group_id"]
@@ -504,7 +504,7 @@ class ClassicGame:
         if self.players_in_game[0].is_vp:
             await self.vp_answer()
 
-    def get_random_valid_answer(self) -> Optional[str]:
+    def get_random_valid_answer(self) -> str | None:
         # Prefixed, so ~0.1ms; stays synchronous because vp_answer runs inside
         # answer_lock and an await here would widen that critical section.
         return get_random_word(
@@ -637,7 +637,7 @@ class ClassicGame:
                 )
         await self.send_message(text)
 
-    async def pick_starting_word(self, **kwargs) -> Optional[str]:
+    async def pick_starting_word(self, **kwargs) -> str | None:
         """Chooses the opening word, relaxing constraints if nothing matches.
 
         get_random_word() returns None when every candidate is filtered out,
@@ -673,7 +673,7 @@ class ClassicGame:
         # rather than inventing a word, and let the caller report it.
         return None
 
-    def require_starting_word(self, word: Optional[str]) -> str:
+    def require_starting_word(self, word: str | None) -> str:
         """Returns word, or aborts the game cleanly if no word could be picked.
 
         Raising ValueError is handled by the game loops, which tear the game
@@ -689,7 +689,7 @@ class ClassicGame:
             await self.pick_starting_word(min_len=self.min_letters_limit)
         )
         self.used_words.add(self.current_word)
-        self.start_time = datetime.now(timezone.utc).replace(microsecond=0)
+        self.start_time = datetime.now(UTC).replace(microsecond=0)
 
         await self.send_message(
             (
@@ -737,7 +737,7 @@ class ClassicGame:
         return False
 
     async def handle_game_end(self) -> None:
-        self.end_time = datetime.now(timezone.utc).replace(microsecond=0)
+        self.end_time = datetime.now(UTC).replace(microsecond=0)
         td = self.end_time - self.start_time
         game_len_str = f"{int(td.total_seconds()) // 3600:02}{str(td)[-6:]}"
 

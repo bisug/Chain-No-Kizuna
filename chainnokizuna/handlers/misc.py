@@ -2,7 +2,7 @@ import asyncio
 import logging
 from uuid import uuid4
 
-from aiogram import Router, F, types, html
+from aiogram import F, Router, html, types
 from aiogram.enums import ChatType, ParseMode
 from aiogram.filters import (
     JOIN_TRANSITION,
@@ -13,19 +13,17 @@ from aiogram.filters import (
 )
 
 from chainnokizuna.core.resources import GlobalState, get_db
+from chainnokizuna.filters import IsMainBot, IsOwner
+from chainnokizuna.models import GAME_MODES
+from chainnokizuna.services.words import Words, is_word
 from config import (
     ADMIN_GROUP_ID,
     OFFICIAL_GROUP_ID,
-    VIP,
     OWNER_ID,
     SUPPORT_GROUP,
     UPDATE_CHANNEL,
+    VIP,
 )
-from chainnokizuna.filters import IsOwner
-from chainnokizuna.models import GAME_MODES
-from chainnokizuna.services.words import is_word
-from chainnokizuna.filters import IsMainBot
-from chainnokizuna.services.words import Words
 
 logger = logging.getLogger(__name__)
 

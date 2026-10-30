@@ -1,14 +1,13 @@
+import math
 import time
-from typing import Optional, Tuple
 
-from aiogram import Router, types, html
+from aiogram import Router, html, types
 from aiogram.enums import ParseMode
 from aiogram.filters import Command
 
 from chainnokizuna.core.resources import get_db
 from chainnokizuna.filters import IsMainBot
 from chainnokizuna.utils.decorators import send_groups_only_message
-import math
 
 router = Router(name=__name__)
 router.message.filter(IsMainBot())
@@ -18,7 +17,7 @@ router.message.filter(IsMainBot())
 # with the player base.
 _LEADERBOARD_COUNT_TTL = 30  # seconds
 _MAX_LEADERBOARD_PAGE = 100
-_leaderboard_count_cache: Optional[int] = None
+_leaderboard_count_cache: int | None = None
 _leaderboard_total_at: float = 0.0
 
 
@@ -120,7 +119,7 @@ async def cmd_groupstats(message: types.Message) -> None:
     )
 
 
-_global_stats_cache: Optional[Tuple[float, str]] = None  # (timestamp, content)
+_global_stats_cache: tuple[float, str] | None = None  # (timestamp, content)
 _GLOBAL_STATS_TTL = 30  # seconds
 
 
@@ -190,7 +189,7 @@ async def topseekers_callback(callback: types.CallbackQuery) -> None:
     await callback.answer()
 
 
-async def get_leaderboard_page(page: int) -> Tuple[str, types.InlineKeyboardMarkup]:
+async def get_leaderboard_page(page: int) -> tuple[str, types.InlineKeyboardMarkup]:
     db = get_db()
     limit = 10
 

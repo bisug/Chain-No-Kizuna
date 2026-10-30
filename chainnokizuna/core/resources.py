@@ -1,20 +1,20 @@
 import asyncio
 import logging
 import socket
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Optional, Any
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
+import redis.asyncio as redis
+from aiogram import Bot, types
+from aiogram.client.default import DefaultBotProperties
+from aiogram.enums import ParseMode
 from pymongo import AsyncMongoClient
 
 # PyMongo 4.18 moved the async types out of the top-level namespace.
 from pymongo.asynchronous.database import AsyncDatabase
-import redis.asyncio as redis
 from redis.exceptions import TimeoutError as RedisTimeoutError
-from aiogram import Bot, types
-from aiogram.enums import ParseMode
-from aiogram.client.default import DefaultBotProperties
 
-from config import TOKEN, VP_TOKEN, MONGO_URI, REDIS_URL, DB_NAME
+from config import DB_NAME, MONGO_URI, REDIS_URL, TOKEN, VP_TOKEN
 
 if TYPE_CHECKING:
     from chainnokizuna.models import ClassicGame
@@ -28,14 +28,14 @@ class GlobalState:
     Holds globally accessible runtime states and bot user identities.
     """
 
-    build_time = datetime.now(timezone.utc).replace(microsecond=0)
+    build_time = datetime.now(UTC).replace(microsecond=0)
     maint_mode = False
 
-    games: dict[int, "ClassicGame"] = {}  # group id -> game instance
+    games: dict[int, ClassicGame] = {}  # group id -> game instance
     games_lock: asyncio.Lock = asyncio.Lock()
 
-    bot_user: Optional[types.User] = None
-    vp_user: Optional[types.User] = None
+    bot_user: types.User | None = None
+    vp_user: types.User | None = None
 
 
 bot = Bot(
@@ -46,7 +46,7 @@ bot = Bot(
         link_preview_is_disabled=True,
     ),
 )
-vp_bot: Optional[Bot] = (
+vp_bot: Bot | None = (
     Bot(
         token=VP_TOKEN,
         default=DefaultBotProperties(
@@ -60,8 +60,8 @@ vp_bot: Optional[Bot] = (
 )
 
 
-mongo_client: Optional[AsyncMongoClient] = None
-vk: Optional[redis.Redis] = None
+mongo_client: AsyncMongoClient | None = None
+vk: redis.Redis | None = None
 
 
 def get_db() -> AsyncDatabase[dict[str, Any]]:

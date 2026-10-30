@@ -1,30 +1,29 @@
 import asyncio
 import re
-from typing import Type
 
+from aiogram import Bot, F, Router, html, types
+from aiogram.enums import ParseMode
 from aiogram.filters import Command, CommandObject
 
 from chainnokizuna.core.resources import GlobalState, vp_bot
-from config import GameState, VIP, VIP_GROUP, UPDATE_CHANNEL
-from chainnokizuna.utils.decorators import send_groups_only_message
-from chainnokizuna.filters import HasGameInstance, IsAdmin, IsOwner, IsMainBot
+from chainnokizuna.filters import HasGameInstance, IsAdmin, IsMainBot, IsOwner
 from chainnokizuna.models import (
+    GAME_MODES,
     ClassicGame,
     EliminationGame,
-    GAME_MODES,
-    MixedEliminationGame,
     GuessTheWordGame,
+    MixedEliminationGame,
 )
 from chainnokizuna.services.words import Words
-from aiogram import Router, types, Bot, F, html
-from aiogram.enums import ParseMode
+from chainnokizuna.utils.decorators import send_groups_only_message
+from config import UPDATE_CHANNEL, VIP, VIP_GROUP, GameState
 
 gameplay_router = Router(name=__name__)
 gameplay_router.message.filter(IsMainBot())
 
 
 @send_groups_only_message
-async def start_game(message: types.Message, game_type: Type[ClassicGame]) -> None:
+async def start_game(message: types.Message, game_type: type[ClassicGame]) -> None:
     """
     Initializes and starts a new game of the specified type in a group.
     Ensures group-specific constraints (slow mode, maintenance) are met.

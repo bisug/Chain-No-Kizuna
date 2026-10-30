@@ -1,5 +1,4 @@
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from aiogram import types
 from aiogram.enums import ParseMode
@@ -18,7 +17,7 @@ class EliminationGame(ClassicGame):
     name = "elimination game"
     command = "startelim"
 
-    __slots__ = ("round", "turns_until_elimination", "exceeded_score_limit")
+    __slots__ = ("exceeded_score_limit", "round", "turns_until_elimination")
 
     def __init__(self, group_id: int) -> None:
         super().__init__(group_id)
@@ -51,7 +50,7 @@ class EliminationGame(ClassicGame):
         return data
 
     @classmethod
-    def from_dict(cls, data: dict) -> "EliminationGame":
+    def from_dict(cls, data: dict) -> EliminationGame:
         game = super().from_dict(data)
         game.round = data.get("round", 1)
         game.turns_until_elimination = data.get("turns_until_elimination", 0)
@@ -68,7 +67,7 @@ class EliminationGame(ClassicGame):
         if self.state == GameState.JOINING:
             await super().forcejoin(message)
 
-    def get_leaderboard(self, show_player: Optional[Player] = None) -> str:
+    def get_leaderboard(self, show_player: Player | None = None) -> str:
         # Make a copy of players in game
         players = self.players_in_game[:]
         # Sort by letter count descending then user id ascending
@@ -134,7 +133,7 @@ class EliminationGame(ClassicGame):
     async def running_initialization(self) -> None:
         self.current_word = self.require_starting_word(await self.pick_starting_word())
         self.used_words.add(self.current_word)
-        self.start_time = datetime.now(timezone.utc).replace(microsecond=0)
+        self.start_time = datetime.now(UTC).replace(microsecond=0)
 
         await self.send_message(
             (

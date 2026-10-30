@@ -1,7 +1,6 @@
 import random
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from string import ascii_lowercase
-from typing import Optional
 
 from aiogram import types
 from aiogram.enums import ParseMode
@@ -26,7 +25,7 @@ class BannedLettersGame(ClassicGame):
         return data
 
     @classmethod
-    def from_dict(cls, data: dict) -> "BannedLettersGame":
+    def from_dict(cls, data: dict) -> BannedLettersGame:
         game = super().from_dict(data)
         game.banned_letters = data.get("banned_letters", [])
         return game
@@ -51,7 +50,7 @@ class BannedLettersGame(ClassicGame):
         if self.players_in_game[0].is_vp:
             await self.vp_answer()
 
-    def get_random_valid_answer(self) -> Optional[str]:
+    def get_random_valid_answer(self) -> str | None:
         return get_random_word(
             min_len=self.min_letters_limit,
             prefix=self.current_word[-1],
@@ -97,7 +96,7 @@ class BannedLettersGame(ClassicGame):
             )
         )
         self.used_words.add(self.current_word)
-        self.start_time = datetime.now(timezone.utc).replace(microsecond=0)
+        self.start_time = datetime.now(UTC).replace(microsecond=0)
 
         await self.send_message(
             (

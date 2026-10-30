@@ -13,14 +13,14 @@ from unittest import mock
 
 from dawg import CompletionDAWG
 
-from config import GameState
 from chainnokizuna.models import GAME_MODES
-from chainnokizuna.models.game.classic import ClassicGame
 from chainnokizuna.models.game.chosen_first_letter import ChosenFirstLetterGame
+from chainnokizuna.models.game.classic import ClassicGame
 from chainnokizuna.models.game.guess_the_word import GuessTheWordGame
 from chainnokizuna.models.player import Player
 from chainnokizuna.services import words as words_mod
 from chainnokizuna.services.words import Words
+from config import GameState
 from tests.helpers import make_user, run
 
 DICTIONARY_DEPENDENT = [m for m in GAME_MODES if m.requires_word_list]

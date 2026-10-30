@@ -1,14 +1,14 @@
 import random
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from string import ascii_lowercase
 
 from aiogram import types
 from aiogram.enums import ParseMode
 
+from chainnokizuna.models.game import EliminationGame
 from chainnokizuna.models.game.banned_letters import BannedLettersGame
 from chainnokizuna.models.game.chosen_first_letter import ChosenFirstLetterGame
 from chainnokizuna.models.game.classic import ClassicGame
-from chainnokizuna.models.game import EliminationGame
 from chainnokizuna.models.game.required_letter import RequiredLetterGame
 from chainnokizuna.services.words import check_word_existence, get_random_word
 
@@ -28,7 +28,7 @@ class MixedEliminationGame(EliminationGame):
         RequiredLetterGame,
     ]
 
-    __slots__ = ("game_mode", "banned_letters", "required_letter")
+    __slots__ = ("banned_letters", "game_mode", "required_letter")
 
     def __init__(self, group_id):
         super().__init__(group_id)
@@ -44,7 +44,7 @@ class MixedEliminationGame(EliminationGame):
         return data
 
     @classmethod
-    def from_dict(cls, data: dict) -> "MixedEliminationGame":
+    def from_dict(cls, data: dict) -> MixedEliminationGame:
         game = super().from_dict(data)
         game.banned_letters = data.get("banned_letters", [])
         game.required_letter = data.get("required_letter")
@@ -131,7 +131,7 @@ class MixedEliminationGame(EliminationGame):
             RequiredLetterGame.change_required_letter(self)
 
     async def running_initialization(self) -> None:
-        self.start_time = datetime.now(timezone.utc).replace(microsecond=0)
+        self.start_time = datetime.now(UTC).replace(microsecond=0)
         self.turns_until_elimination = len(self.players_in_game)
         self.game_mode = random.choice(self.game_modes)
 

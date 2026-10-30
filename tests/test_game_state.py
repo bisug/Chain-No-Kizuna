@@ -7,13 +7,13 @@ import re
 import unittest
 from unittest import mock
 
-from aiogram import types, html
+from aiogram import html, types
 
-from config import GameState
 from chainnokizuna.core.resources import GlobalState
 from chainnokizuna.db.redis import _get_game_class
 from chainnokizuna.models import GAME_MODES, ClassicGame
 from chainnokizuna.models.player import Player
+from config import GameState
 from tests.helpers import make_message, make_user, run
 
 
@@ -31,7 +31,7 @@ class TestSerializationRoundTrip(unittest.TestCase):
         game.players = [self.player]
         game.players_in_game = [self.player]
         game.state = 1
-        game.start_time = datetime.datetime.now(datetime.timezone.utc)
+        game.start_time = datetime.datetime.now(datetime.UTC)
         game.current_word = "apple"
         game.turns = 5
         game.used_words = {"apple", "pear"}
@@ -493,8 +493,9 @@ class TestHtmlEscapingOfDynamicText(unittest.TestCase):
         self.assertEqual(html.quote("a & b"), "a &amp; b")
 
     def test_guess_the_word_educational_reveal_is_escaped(self):
-        import chainnokizuna.models.game.guess_the_word as gtw
         from aiogram import Bot
+
+        import chainnokizuna.models.game.guess_the_word as gtw
         from chainnokizuna.models.game.guess_the_word import GuessTheWordGame
 
         captured = []
@@ -505,7 +506,7 @@ class TestHtmlEscapingOfDynamicText(unittest.TestCase):
             game.guess_count = 3
             game.max_guesses = 30
             game.guess_history = ["🟩 🟨 <b>APPLE</b>"]
-            game.start_time = datetime.datetime.now(datetime.timezone.utc)
+            game.start_time = datetime.datetime.now(datetime.UTC)
             game.state = 1
             with (
                 mock.patch.object(gtw, "bot", new=Bot(token="1:T")),

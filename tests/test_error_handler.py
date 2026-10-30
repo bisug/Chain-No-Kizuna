@@ -11,9 +11,9 @@ from unittest import mock
 
 from aiogram import types
 
-import chainnokizuna.handlers.errors as errors
 import chainnokizuna.db.redis as redis_mod
 from chainnokizuna.core.resources import GlobalState
+from chainnokizuna.handlers import errors
 from chainnokizuna.models.game.classic import ClassicGame
 from tests.helpers import make_message, run
 
@@ -41,9 +41,8 @@ class TestErrorHandlerWithoutAdminGroup(unittest.TestCase):
 
         with mock.patch.object(
             errors, "send_admin_group", new=mock.AsyncMock(return_value=None)
-        ):
-            with self.assertRaises(RuntimeError) as ctx:
-                run(errors.error_handler(self._event()))
+        ), self.assertRaises(RuntimeError) as ctx:
+            run(errors.error_handler(self._event()))
 
         self.assertEqual(str(ctx.exception), "original failure")
         self.assertEqual(game.state, -1, "game should be marked KILLGAME")
@@ -56,25 +55,22 @@ class TestErrorHandlerWithoutAdminGroup(unittest.TestCase):
 
         with mock.patch.object(
             errors, "send_admin_group", new=mock.AsyncMock(return_value=None)
-        ):
-            with self.assertRaises(RuntimeError):
-                run(errors.error_handler(self._event()))
+        ), self.assertRaises(RuntimeError):
+            run(errors.error_handler(self._event()))
         self.assertEqual(game.state, -1)
 
     def test_original_error_is_never_masked(self):
         with mock.patch.object(
             errors, "send_admin_group", new=mock.AsyncMock(return_value=None)
-        ):
-            with self.assertRaises(RuntimeError) as ctx:
-                run(errors.error_handler(self._event()))
+        ), self.assertRaises(RuntimeError) as ctx:
+            run(errors.error_handler(self._event()))
         self.assertNotIsInstance(ctx.exception, AttributeError)
 
     def test_handles_error_when_no_game_is_running(self):
         with mock.patch.object(
             errors, "send_admin_group", new=mock.AsyncMock(return_value=None)
-        ):
-            with self.assertRaises(RuntimeError):
-                run(errors.error_handler(self._event()))
+        ), self.assertRaises(RuntimeError):
+            run(errors.error_handler(self._event()))
 
     def test_uses_admin_message_when_available(self):
         game = ClassicGame(self.GROUP_ID)
@@ -85,9 +81,8 @@ class TestErrorHandlerWithoutAdminGroup(unittest.TestCase):
 
         with mock.patch.object(
             errors, "send_admin_group", new=mock.AsyncMock(return_value=admin_msg)
-        ):
-            with self.assertRaises(RuntimeError):
-                run(errors.error_handler(self._event()))
+        ), self.assertRaises(RuntimeError):
+            run(errors.error_handler(self._event()))
 
         self.assertEqual(game.state, -1)
         # The follow-up "Killing game" note is scheduled on the admin message.
