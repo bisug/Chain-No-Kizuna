@@ -1,12 +1,17 @@
 """Shared helpers for the test suite."""
+
 import asyncio
 import datetime
 
 from aiogram import types
 
 
-def make_user(user_id: int = 777, name: str = "Tester", is_bot: bool = False) -> types.User:
-    return types.User(id=user_id, is_bot=is_bot, first_name=name, username=f"u{user_id}")
+def make_user(
+    user_id: int = 777, name: str = "Tester", is_bot: bool = False
+) -> types.User:
+    return types.User(
+        id=user_id, is_bot=is_bot, first_name=name, username=f"u{user_id}"
+    )
 
 
 def make_message(
@@ -23,7 +28,11 @@ def make_message(
     return types.Message(
         message_id=message_id,
         date=datetime.datetime.now(),
-        chat=types.Chat(id=chat_id, type=chat_type, title="Test Group" if chat_type != "private" else None),
+        chat=types.Chat(
+            id=chat_id,
+            type=chat_type,
+            title="Test Group" if chat_type != "private" else None,
+        ),
         from_user=user if user is not None else make_user(),
         text=text,
         **extra,

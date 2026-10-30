@@ -4,8 +4,7 @@ import traceback
 
 from aiogram import types
 from aiogram.enums import ParseMode
-from aiogram.exceptions import (TelegramMigrateToChat,
-                                TelegramRetryAfter)
+from aiogram.exceptions import TelegramMigrateToChat, TelegramRetryAfter
 
 from chainnokizuna.core.resources import GlobalState, get_db
 from config import GameState
@@ -22,20 +21,24 @@ async def migrate_chat(old_chat_id: int, new_chat_id: int) -> None:
         # Re-key the persisted copy too, or a restart would restore the game
         # against the old, unreachable chat id.
         from chainnokizuna.db.redis import move_saved_game, save_game
+
         await move_saved_game(old_chat_id, new_chat_id)
         # Re-save under the new id so the stored group_id matches as well.
         await save_game(game)
         asyncio.create_task(
-            awaitable_to_coroutine(send_admin_group(f"Game moved from {old_chat_id} to {new_chat_id}."))
+            awaitable_to_coroutine(
+                send_admin_group(f"Game moved from {old_chat_id} to {new_chat_id}.")
+            )
         )
 
     db = get_db()
     await db.games.update_many(
-        {"group_id": old_chat_id},
-        {"$set": {"group_id": new_chat_id}}
+        {"group_id": old_chat_id}, {"$set": {"group_id": new_chat_id}}
     )
 
-    await send_admin_group(f"Group statistics migrated from {old_chat_id} to {new_chat_id}.")
+    await send_admin_group(
+        f"Group statistics migrated from {old_chat_id} to {new_chat_id}."
+    )
 
 
 async def error_handler(event: types.ErrorEvent) -> None:
@@ -44,11 +47,14 @@ async def error_handler(event: types.ErrorEvent) -> None:
 
     # Always log locally, even when reporting upstream is impossible, so a
     # failure can never be completely invisible.
-    logger.error("Unhandled error in %s: %s", type(event.update).__name__, error,
-                 exc_info=error)
+    logger.error(
+        "Unhandled error in %s: %s", type(event.update).__name__, error, exc_info=error
+    )
 
     message = update.message if update is not None else None
-    group_id = message.chat.id if message is not None and message.chat is not None else None
+    group_id = (
+        message.chat.id if message is not None and message.chat is not None else None
+    )
 
     if group_id is not None and group_id in GlobalState.games:
         GlobalState.games[group_id].request_stale_scan()
@@ -63,7 +69,11 @@ async def error_handler(event: types.ErrorEvent) -> None:
                 await migrate_chat(group_id, error.migrate_to_chat_id)
             except Exception:
                 # The migration is a side task; still report the real error.
-                logger.exception("Failed to migrate chat %s -> %s", group_id, error.migrate_to_chat_id)
+                logger.exception(
+                    "Failed to migrate chat %s -> %s",
+                    group_id,
+                    error.migrate_to_chat_id,
+                )
         raise error from None
 
     where = group_id if group_id is not None else "idk"
@@ -82,10 +92,12 @@ async def error_handler(event: types.ErrorEvent) -> None:
 
     if message is not None and message.chat is not None:
         asyncio.create_task(
-            awaitable_to_coroutine(message.reply(
-                f"Error occurred (<code>{error.__class__.__name__}</code>). My owner has been notified.",
-                parse_mode=ParseMode.HTML
-            ))
+            awaitable_to_coroutine(
+                message.reply(
+                    f"Error occurred (<code>{error.__class__.__name__}</code>). My owner has been notified.",
+                    parse_mode=ParseMode.HTML,
+                )
+            )
         )
 
         if group_id in GlobalState.games:
@@ -93,7 +105,11 @@ async def error_handler(event: types.ErrorEvent) -> None:
             # (ADMIN_GROUP_ID unset) or the send failed. Never dereference it.
             if send_admin_msg is not None:
                 asyncio.create_task(
-                    awaitable_to_coroutine(send_admin_msg.reply(f"Killing game in {group_id} consequently."))
+                    awaitable_to_coroutine(
+                        send_admin_msg.reply(
+                            f"Killing game in {group_id} consequently."
+                        )
+                    )
                 )
             GlobalState.games[group_id].state = GameState.KILLGAME
             await asyncio.sleep(2)

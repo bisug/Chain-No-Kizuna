@@ -4,6 +4,7 @@ Before the fix, a renewal exception was logged and ignored forever: _is_leader
 stayed True on a lock whose TTL had expired, so a standby could legitimately
 take over while this instance kept polling.
 """
+
 import asyncio
 import os
 import unittest
@@ -60,6 +61,7 @@ class _RenewalScenario(unittest.TestCase):
                 still_running = not election._renew_task.done()
                 election._renew_task.cancel()
                 return election.is_leader, still_running
+
         return asyncio.run(scenario())
 
     def test_sustained_outage_relinquishes_leadership(self):
@@ -128,6 +130,7 @@ class TestRenewalLoggingIsThrottled(unittest.TestCase):
 
     def _run_with_failing_redis(self, attempts):
         """Drive _renew_loop for a fixed number of failing attempts."""
+
         class _Stop(Exception):
             pass
 
@@ -145,8 +148,10 @@ class TestRenewalLoggingIsThrottled(unittest.TestCase):
                 if len(seen) >= attempts:
                     raise _Stop
 
-            with mock.patch.object(leader_mod, "get_vk", return_value=redis), \
-                 mock.patch.object(leader_mod.asyncio, "sleep", new=fake_sleep):
+            with (
+                mock.patch.object(leader_mod, "get_vk", return_value=redis),
+                mock.patch.object(leader_mod.asyncio, "sleep", new=fake_sleep),
+            ):
                 await leader_mod.LeaderElection._renew_loop(election)
             return seen
 
@@ -158,7 +163,8 @@ class TestRenewalLoggingIsThrottled(unittest.TestCase):
     def test_logging_is_throttled_below_one_line_per_attempt(self):
         lines = self._run_with_failing_redis(self.MAX_ATTEMPTS)
         self.assertLessEqual(
-            len(lines), 8,
+            len(lines),
+            8,
             f"{self.MAX_ATTEMPTS} attempts produced {len(lines)} log lines; expected throttling",
         )
 
@@ -166,7 +172,9 @@ class TestRenewalLoggingIsThrottled(unittest.TestCase):
         # The loop sleeps before evaluating, so N sleeps yield N-1 logged
         # failures; what matters is that the early ones are not suppressed.
         lines = self._run_with_failing_redis(4)
-        self.assertGreaterEqual(len(lines), 3, "the first few failures must remain visible")
+        self.assertGreaterEqual(
+            len(lines), 3, "the first few failures must remain visible"
+        )
         self.assertTrue(
             all("Error renewing leadership" in line for line in lines),
             f"expected only throttle-path lines, got {lines}",
@@ -183,8 +191,10 @@ class TestRenewalLoggingIsThrottled(unittest.TestCase):
         async def scenario():
             redis = mock.AsyncMock()
             redis.eval.side_effect = RuntimeError("connection reset")
-            with mock.patch.object(leader_mod, "get_vk", return_value=redis), \
-                 mock.patch.object(leader_mod.asyncio, "sleep", new=mock.AsyncMock()):
+            with (
+                mock.patch.object(leader_mod, "get_vk", return_value=redis),
+                mock.patch.object(leader_mod.asyncio, "sleep", new=mock.AsyncMock()),
+            ):
                 await leader_mod.LeaderElection._renew_loop(election)
 
         with self.assertLogs(leader_mod.logger, level="ERROR") as captured:

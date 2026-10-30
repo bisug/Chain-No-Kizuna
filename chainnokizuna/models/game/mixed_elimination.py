@@ -25,7 +25,7 @@ class MixedEliminationGame(EliminationGame):
         ClassicGame,
         ChosenFirstLetterGame,
         BannedLettersGame,
-        RequiredLetterGame
+        RequiredLetterGame,
     ]
 
     __slots__ = ("game_mode", "banned_letters", "required_letter")
@@ -75,16 +75,24 @@ class MixedEliminationGame(EliminationGame):
         text += ".\n"
 
         text += f"You have <b>{self.time_limit}s</b> to answer.\n\n"
-        text += "Leaderboard:\n" + self.get_leaderboard(show_player=self.players_in_game[0])
+        text += "Leaderboard:\n" + self.get_leaderboard(
+            show_player=self.players_in_game[0]
+        )
         await self.send_message(text, parse_mode=ParseMode.HTML)
 
         self.reset_turn()
 
-    async def additional_answer_checkers(self, word: str, message: types.Message) -> bool:
+    async def additional_answer_checkers(
+        self, word: str, message: types.Message
+    ) -> bool:
         if self.game_mode is BannedLettersGame:
-            return await BannedLettersGame.additional_answer_checkers(self, word, message)
+            return await BannedLettersGame.additional_answer_checkers(
+                self, word, message
+            )
         elif self.game_mode is RequiredLetterGame:
-            return await RequiredLetterGame.additional_answer_checkers(self, word, message)
+            return await RequiredLetterGame.additional_answer_checkers(
+                self, word, message
+            )
         return True
 
     async def handle_answer(self, message: types.Message) -> None:
@@ -107,7 +115,9 @@ class MixedEliminationGame(EliminationGame):
             await message.reply(f"<i>{word.capitalize()}</i> has been used.")
             return
         if not check_word_existence(word):
-            await message.reply(f"<i>{word.capitalize()}</i> is not in my list of words.")
+            await message.reply(
+                f"<i>{word.capitalize()}</i> is not in my list of words."
+            )
             return
         if not await self.additional_answer_checkers(word, message):
             return
@@ -136,8 +146,7 @@ class MixedEliminationGame(EliminationGame):
             # Ensure uniform probability of each letter as the starting letter
             # Prefixed, so ~0.1ms; stays synchronous to keep this branch inline.
             self.current_word = get_random_word(
-                prefix=random.choice(ascii_lowercase),
-                pool=self.word_pool
+                prefix=random.choice(ascii_lowercase), pool=self.word_pool
             )
         else:
             self.current_word = self.require_starting_word(
@@ -150,15 +159,18 @@ class MixedEliminationGame(EliminationGame):
         await self.send_message(
             (
                 f"The first word is <i>{self.current_word.capitalize()}</i>.\n\n"
-                "Turn order:\n"
-                + "\n".join(p.mention for p in self.players_in_game)
+                "Turn order:\n" + "\n".join(p.mention for p in self.players_in_game)
             ),
-            parse_mode=ParseMode.HTML
+            parse_mode=ParseMode.HTML,
         )
 
-        round_text = f"Round 1 is starting...\nMode: <b>{self.game_mode.name.capitalize()}</b>"
+        round_text = (
+            f"Round 1 is starting...\nMode: <b>{self.game_mode.name.capitalize()}</b>"
+        )
         if self.game_mode is ChosenFirstLetterGame:
-            round_text += f"\nThe chosen first letter is <i>{self.current_word[0].upper()}</i>."
+            round_text += (
+                f"\nThe chosen first letter is <i>{self.current_word[0].upper()}</i>."
+            )
         elif self.game_mode is BannedLettersGame:
             round_text += f"\nBanned letters: <i>{', '.join(c.upper() for c in self.banned_letters)}</i>"
         round_text += "\n\nLeaderboard:\n" + self.get_leaderboard()
@@ -184,7 +196,9 @@ class MixedEliminationGame(EliminationGame):
         if self.game_mode is ChosenFirstLetterGame:
             # The last letter of the current word becomes the chosen first letter
             self.current_word = self.current_word[-1]
-            round_text += f"\nThe chosen first letter is <i>{self.current_word.upper()}</i>."
+            round_text += (
+                f"\nThe chosen first letter is <i>{self.current_word.upper()}</i>."
+            )
         elif self.game_mode is BannedLettersGame:
             round_text += f"\nBanned letters: <i>{', '.join(c.upper() for c in self.banned_letters)}</i>"
         round_text += "\n\nLeaderboard:\n" + self.get_leaderboard()

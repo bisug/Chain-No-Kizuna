@@ -15,7 +15,11 @@ from chainnokizuna.models.player import Player
 from chainnokizuna.core.resources import GlobalState, bot, vp_bot, get_db
 from chainnokizuna.utils.keyboards import get_add_vp_to_group_keyboard
 from chainnokizuna.utils.telegram import send_admin_group
-from chainnokizuna.services.words import check_word_existence, get_random_word, get_random_word_async
+from chainnokizuna.services.words import (
+    check_word_existence,
+    get_random_word,
+    get_random_word_async,
+)
 from chainnokizuna.utils.timer import GameTimer
 
 logger = logging.getLogger(__name__)
@@ -31,6 +35,7 @@ class ClassicGame:
     Base class for all word chain game modes.
     Implements the core finite state machine: JOINING -> RUNNING -> END.
     """
+
     name = "classic game"
     command = "startclassic"
     # Modes that draw a starting word from the dictionary need a non-empty word list.
@@ -40,11 +45,30 @@ class ClassicGame:
     word_pool: Optional[str] = "common"
 
     __slots__ = (
-        "group_id", "players", "players_in_game", "state", "start_time", "end_time",
-        "extended_user_ids", "min_players", "max_players", "time_left", "time_limit",
-        "min_letters_limit", "current_word", "longest_word", "longest_word_sender_id",
-        "answered", "accepting_answers", "turns", "used_words", "join_lock", "answer_lock",
-        "_admin_cache", "allow_any_player_answer", "_stale_scan_task"
+        "group_id",
+        "players",
+        "players_in_game",
+        "state",
+        "start_time",
+        "end_time",
+        "extended_user_ids",
+        "min_players",
+        "max_players",
+        "time_left",
+        "time_limit",
+        "min_letters_limit",
+        "current_word",
+        "longest_word",
+        "longest_word_sender_id",
+        "answered",
+        "accepting_answers",
+        "turns",
+        "used_words",
+        "join_lock",
+        "answer_lock",
+        "_admin_cache",
+        "allow_any_player_answer",
+        "_stale_scan_task",
     )
 
     def __init__(self, group_id: int) -> None:
@@ -67,18 +91,26 @@ class ClassicGame:
         # Game attributes
         self.current_word: Optional[str] = None
         self.longest_word = ""
-        self.longest_word_sender_id: Optional[int] = None  # TODO: Change to Player object instead of id
+        self.longest_word_sender_id: Optional[int] = (
+            None  # TODO: Change to Player object instead of id
+        )
         self.answered = False
         self.accepting_answers = False
         self.turns = 0
         self.used_words: set[str] = set()
         self.allow_any_player_answer = False
 
-        self.join_lock = asyncio.Lock()  # Prevent same user / vp joining as multiple players
-        self.answer_lock = asyncio.Lock() # Protect against race conditions in turn processing
-        
+        self.join_lock = (
+            asyncio.Lock()
+        )  # Prevent same user / vp joining as multiple players
+        self.answer_lock = (
+            asyncio.Lock()
+        )  # Protect against race conditions in turn processing
+
         # Admin membership is re-checked from Telegram after _ADMIN_CACHE_TTL.
-        self._admin_cache: dict[int, tuple[float, bool]] = {} # user_id -> (cached_at, is_admin)
+        self._admin_cache: dict[
+            int, tuple[float, bool]
+        ] = {}  # user_id -> (cached_at, is_admin)
         # In-flight scan_for_stale_timer task, so repeated triggers are no-ops.
         # Not serialised: it is per-process, and a restore starts no scan.
         self._stale_scan_task: Optional[asyncio.Task] = None
@@ -113,11 +145,17 @@ class ClassicGame:
         game = object.__new__(cls)
         game.group_id = data["group_id"]
         game.state = data["state"]
-        game.start_time = datetime.fromisoformat(data["start_time"]) if data.get("start_time") else None
+        game.start_time = (
+            datetime.fromisoformat(data["start_time"])
+            if data.get("start_time")
+            else None
+        )
         game.end_time = None
         game.time_left = data.get("time_left", GameSettings.MAX_TURN_SECONDS)
         game.time_limit = data.get("time_limit", GameSettings.MAX_TURN_SECONDS)
-        game.min_letters_limit = data.get("min_letters_limit", GameSettings.MIN_WORD_LENGTH_LIMIT)
+        game.min_letters_limit = data.get(
+            "min_letters_limit", GameSettings.MIN_WORD_LENGTH_LIMIT
+        )
         game.min_players = data.get("min_players", GameSettings.MIN_PLAYERS)
         game.max_players = data.get("max_players", GameSettings.MAX_PLAYERS)
         game.current_word = data.get("current_word")
@@ -140,12 +178,15 @@ class ClassicGame:
 
         # Reconstruct players
         from chainnokizuna.models.player import Player
+
         game.players = [Player.from_dict(p) for p in data.get("players", [])]
 
         # Reconstruct players_in_game order
         pid_map = {p.user_id: p for p in game.players}
         game.players_in_game = [
-            pid_map[uid] for uid in data.get("players_in_game_ids", []) if uid in pid_map
+            pid_map[uid]
+            for uid in data.get("players_in_game_ids", [])
+            if uid in pid_map
         ]
 
         return game
@@ -176,6 +217,7 @@ class ClassicGame:
         await self.send_message("Game ended forcibly.")
         GlobalState.games.pop(self.group_id, None)
         from chainnokizuna.db.redis import remove_game
+
         await remove_game(self.group_id)
 
     async def announce_roster_change(self, player: Player, action: str) -> None:
@@ -184,7 +226,7 @@ class ClassicGame:
         await self.send_message(
             f"{player.name} {action}. There {'is' if count == 1 else 'are'} now "
             f"{count} player{'' if count == 1 else 's'}.",
-            parse_mode=ParseMode.HTML
+            parse_mode=ParseMode.HTML,
         )
 
     async def is_admin(self, user_id: int) -> bool:
@@ -231,6 +273,7 @@ class ClassicGame:
             await self.announce_roster_change(player, "joined")
 
             from chainnokizuna.db.redis import register_active_game, save_game
+
             await save_game(self)
             # First save of this game: also claim the active-games set slot, so
             # load_all_games() can find it after a restart.
@@ -241,7 +284,10 @@ class ClassicGame:
 
     async def forcejoin(self, message: types.Message) -> None:
         async with self.join_lock:
-            if self.state == GameState.KILLGAME or len(self.players) >= self.max_players:
+            if (
+                self.state == GameState.KILLGAME
+                or len(self.players) >= self.max_players
+            ):
                 return
 
             if message.reply_to_message:
@@ -318,19 +364,25 @@ class ClassicGame:
             try:
                 vp_member = await bot.get_chat_member(self.group_id, vp_bot.id)
                 assert isinstance(vp_member, MEMBERS)  # VP must be chat member
-            except (TelegramBadRequest, AssertionError):
-                vp_name = GlobalState.vp_user.full_name if GlobalState.vp_user else "Kizuna Assistant"
+            except TelegramBadRequest, AssertionError:
+                vp_name = (
+                    GlobalState.vp_user.full_name
+                    if GlobalState.vp_user
+                    else "Kizuna Assistant"
+                )
                 vp_id = GlobalState.vp_user.id if GlobalState.vp_user else vp_bot.id
                 await self.send_message(
                     f"Add <a href='tg://user?id={vp_id}'>{vp_name}</a> here to play as a virtual player.",
-                    reply_markup=get_add_vp_to_group_keyboard()
+                    reply_markup=get_add_vp_to_group_keyboard(),
                 )
                 return
 
             vp = await Player.vp()
             self.players.append(vp)
 
-            await vp_bot.send_message(self.group_id, f"/join@{GlobalState.bot_user.username}")
+            await vp_bot.send_message(
+                self.group_id, f"/join@{GlobalState.bot_user.username}"
+            )
             await self.announce_roster_change(vp, "joined")
 
             if len(self.players) >= self.max_players:
@@ -360,7 +412,9 @@ class ClassicGame:
             else:
                 return
 
-            await vp_bot.send_message(self.group_id, f"/flee@{GlobalState.bot_user.username}")
+            await vp_bot.send_message(
+                self.group_id, f"/flee@{GlobalState.bot_user.username}"
+            )
             await self.announce_roster_change(vp, "fled")
 
     async def extend(self, message: types.Message) -> None:
@@ -414,7 +468,9 @@ class ClassicGame:
         else:
             # Extend joining phase time
             # Max joining phase duration is capped
-            added_duration = min(n, GameSettings.MAX_JOINING_PHASE_SECONDS - self.time_left)
+            added_duration = min(
+                n, GameSettings.MAX_JOINING_PHASE_SECONDS - self.time_left
+            )
             self.time_left += added_duration
             await self.send_message(
                 f"The joining phase has been extended by {added_duration}s.\n"
@@ -426,7 +482,11 @@ class ClassicGame:
         if not self.players_in_game:
             return
 
-        next_player_text = f" (Next: {self.players_in_game[1].name})" if len(self.players_in_game) > 1 else ""
+        next_player_text = (
+            f" (Next: {self.players_in_game[1].name})"
+            if len(self.players_in_game) > 1
+            else ""
+        )
         await self.send_message(
             (
                 f"Turn: {self.players_in_game[0].mention}{next_player_text}\n"
@@ -436,7 +496,7 @@ class ClassicGame:
                 f"Players remaining: {len(self.players_in_game)}/{len(self.players)}\n"
                 f"Total words: {self.turns}"
             ),
-            parse_mode=ParseMode.HTML
+            parse_mode=ParseMode.HTML,
         )
 
         self.reset_turn()
@@ -451,7 +511,7 @@ class ClassicGame:
             min_len=self.min_letters_limit,
             prefix=self.current_word[-1],
             exclude_words=self.used_words,
-            pool=self.word_pool
+            pool=self.word_pool,
         )
 
     async def vp_answer(self) -> None:
@@ -487,7 +547,9 @@ class ClassicGame:
             self.post_turn_processing(word)
             await self.send_post_turn_message(word)
 
-    async def additional_answer_checkers(self, word: str, message: types.Message) -> bool:
+    async def additional_answer_checkers(
+        self, word: str, message: types.Message
+    ) -> bool:
         # To be overridden by other game modes
         # True/False: valid/invalid answer
         return True
@@ -507,7 +569,7 @@ class ClassicGame:
                     f"<i>{word.capitalize()}</i> does not start with <i>{self.current_word[-1].upper()}</i>."
                 )
                 return
-            
+
             if self.min_word_length_enforced and len(word) < self.min_letters_limit:
                 await message.reply(
                     f"<i>{word.capitalize()}</i> has less than {self.min_letters_limit} letters."
@@ -517,7 +579,9 @@ class ClassicGame:
                 await message.reply(f"<i>{word.capitalize()}</i> has been used.")
                 return
             if not check_word_existence(word):
-                await message.reply(f"<i>{word.capitalize()}</i> is not in my list of words.")
+                await message.reply(
+                    f"<i>{word.capitalize()}</i> is not in my list of words."
+                )
                 return
             if not await self.additional_answer_checkers(word, message):
                 return
@@ -536,7 +600,9 @@ class ClassicGame:
         self.players_in_game[0].word_count += 1
         self.players_in_game[0].letter_count += len(word)
         # If both words have the same length, it will (probably) default to the first argument
-        self.players_in_game[0].longest_word = max(word, self.players_in_game[0].longest_word, key=len)
+        self.players_in_game[0].longest_word = max(
+            word, self.players_in_game[0].longest_word, key=len
+        )
 
         if len(word) > len(self.longest_word):
             self.longest_word = word
@@ -546,6 +612,7 @@ class ClassicGame:
         self.accepting_answers = False
 
         from chainnokizuna.db.redis import save_game
+
         asyncio.create_task(save_game(self))
 
     async def send_post_turn_message(self, word: str) -> None:
@@ -560,7 +627,9 @@ class ClassicGame:
                     f"to <b>{self.time_limit}s</b>.\n"
                 )
             if self.min_letters_limit < GameSettings.MAX_WORD_LENGTH_LIMIT:
-                self.min_letters_limit += GameSettings.WORD_LENGTH_LIMIT_INCREASE_PER_LIMIT_CHANGE
+                self.min_letters_limit += (
+                    GameSettings.WORD_LENGTH_LIMIT_INCREASE_PER_LIMIT_CHANGE
+                )
                 text += (
                     f"Minimum letters per word increased from "
                     f"<b>{self.min_letters_limit - GameSettings.WORD_LENGTH_LIMIT_INCREASE_PER_LIMIT_CHANGE}</b> "
@@ -593,7 +662,8 @@ class ClassicGame:
 
         logger.info(
             "No word matched %s in group %s; retrying with relaxed constraints.",
-            kwargs, self.group_id,
+            kwargs,
+            self.group_id,
         )
         word = await get_random_word_async(min_len=1, pool=self.word_pool)
         if word is not None:
@@ -624,10 +694,9 @@ class ClassicGame:
         await self.send_message(
             (
                 f"The first word is <i>{self.current_word.capitalize()}</i>.\n\n"
-                "Turn order:\n"
-                + "\n".join(p.mention for p in self.players_in_game)
+                "Turn order:\n" + "\n".join(p.mention for p in self.players_in_game)
             ),
-            parse_mode=ParseMode.HTML
+            parse_mode=ParseMode.HTML,
         )
 
     async def running_phase_tick(self) -> bool:
@@ -656,7 +725,7 @@ class ClassicGame:
             self.accepting_answers = False
             await self.send_message(
                 f"{self.players_in_game[0].mention} ran out of time! They have been eliminated.",
-                parse_mode=ParseMode.HTML
+                parse_mode=ParseMode.HTML,
             )
             del self.players_in_game[0]
 
@@ -676,7 +745,10 @@ class ClassicGame:
         text = f"{winner} won the game out of {len(self.players)} players!\n"
         text += f"Total words: {self.turns}\n"
         if self.longest_word:
-            sender = next((p for p in self.players if p.user_id == self.longest_word_sender_id), None)
+            sender = next(
+                (p for p in self.players if p.user_id == self.longest_word_sender_id),
+                None,
+            )
             if sender:
                 text += f"Longest word: <i>{self.longest_word.capitalize()}</i> from {sender.name}\n"
         text += f"Game length: <code>{game_len_str}</code>"
@@ -686,33 +758,42 @@ class ClassicGame:
 
         # Remove persisted state
         from chainnokizuna.db.redis import remove_game
+
         await remove_game(self.group_id)
 
     async def update_db(self) -> None:
         """Asynchronously exports game results and player statistics to MongoDB."""
         db = get_db()
-        
+
         participants = []
         for player in self.players:
-            won = player in self.players_in_game if self.state != GameState.KILLGAME else False
-            participants.append({
-                "user_id": player.user_id,
-                "won": won,
-                "word_count": player.word_count,
-                "letter_count": player.letter_count,
-                "longest_word": player.longest_word,
-                "full_name": player._name,
-                "username": player._username
-            })
+            won = (
+                player in self.players_in_game
+                if self.state != GameState.KILLGAME
+                else False
+            )
+            participants.append(
+                {
+                    "user_id": player.user_id,
+                    "won": won,
+                    "word_count": player.word_count,
+                    "letter_count": player.letter_count,
+                    "longest_word": player.longest_word,
+                    "full_name": player._name,
+                    "username": player._username,
+                }
+            )
 
         game_doc = {
             "group_id": self.group_id,
             "players_count": len(self.players),
             "game_mode": self.__class__.__name__,
-            "winner_id": self.players_in_game[0].user_id if self.players_in_game else None,
+            "winner_id": self.players_in_game[0].user_id
+            if self.players_in_game
+            else None,
             "start_time": self.start_time,
             "end_time": self.end_time,
-            "participants": participants
+            "participants": participants,
         }
 
         await db.games.insert_one(game_doc)
@@ -722,8 +803,9 @@ class ClassicGame:
 
         # Prepare bulk operations for player stats
         from pymongo import UpdateOne
+
         operations = []
-        
+
         for p in participants:
             operations.append(
                 UpdateOne(
@@ -733,17 +815,15 @@ class ClassicGame:
                             "game_count": 1,
                             "win_count": 1 if p["won"] else 0,
                             "word_count": p["word_count"],
-                            "letter_count": p["letter_count"]
+                            "letter_count": p["letter_count"],
                         },
                         "$set": {
                             "full_name": p["full_name"],
-                            "username": p["username"]
+                            "username": p["username"],
                         },
-                        "$max": {
-                            "longest_word": p["longest_word"]
-                        }
+                        "$max": {"longest_word": p["longest_word"]},
                     },
-                    upsert=True
+                    upsert=True,
                 )
             )
 
@@ -766,13 +846,18 @@ class ClassicGame:
         prev = self.time_left
         for _ in range(5):
             await asyncio.sleep(1)
-            if self.state == GameState.KILLGAME or self.group_id not in GlobalState.games:
+            if (
+                self.state == GameState.KILLGAME
+                or self.group_id not in GlobalState.games
+            ):
                 return
             if self.time_left != prev:
                 return  # Timer not stuck
             prev = self.time_left
 
-        await send_admin_group(f"Prolonged stale/negative timer detected in group <code>{self.group_id}</code>. Game terminated.")
+        await send_admin_group(
+            f"Prolonged stale/negative timer detected in group <code>{self.group_id}</code>. Game terminated."
+        )
         try:
             await self.send_message("Game timer is malfunctioning. Game terminated.")
         except Exception:
@@ -780,6 +865,7 @@ class ClassicGame:
 
         GlobalState.games.pop(self.group_id, None)
         from chainnokizuna.db.redis import remove_game
+
         await remove_game(self.group_id)
 
     async def main_loop(self, message: types.Message) -> None:
@@ -798,9 +884,6 @@ class ClassicGame:
             await self.join(message)
 
             async for delta in GameTimer():
-
-
-
                 if self.state == GameState.JOINING:
                     if self.time_left > 0:
                         self.time_left -= delta
@@ -813,6 +896,7 @@ class ClassicGame:
                         # every other teardown site tolerates that race.
                         GlobalState.games.pop(self.group_id, None)
                         from chainnokizuna.db.redis import remove_game
+
                         await remove_game(self.group_id)
                         return
                     else:
@@ -827,6 +911,7 @@ class ClassicGame:
 
                         # Save initial running state
                         from chainnokizuna.db.redis import save_game
+
                         await save_game(self)
                 elif self.state == GameState.RUNNING:
                     # Check for prolonged negative timer
@@ -837,7 +922,7 @@ class ClassicGame:
 
                     # Run game tick `delta` times
                     for _ in range(delta):
-                         if await self.running_phase_tick():  # True: Game ended
+                        if await self.running_phase_tick():  # True: Game ended
                             await self.update_db()
                             return
                 elif self.state == GameState.KILLGAME:
@@ -846,6 +931,7 @@ class ClassicGame:
         except Exception as e:
             GlobalState.games.pop(self.group_id, None)
             from chainnokizuna.db.redis import remove_game
+
             await remove_game(self.group_id)
             try:
                 await self.send_message(
@@ -872,7 +958,7 @@ class ClassicGame:
                 self.players_in_game.append(self.players_in_game.pop(0))
                 await self.send_message(
                     f"{skipped.mention}'s turn was interrupted, skipping to next player.",
-                    parse_mode=ParseMode.HTML
+                    parse_mode=ParseMode.HTML,
                 )
 
             # Reset turn state for a clean resume
@@ -883,9 +969,6 @@ class ClassicGame:
             await self.send_turn_message()
 
             async for delta in GameTimer():
-
-
-
                 if self.state == GameState.RUNNING:
                     if self.time_left < 0:
                         negative_timer += delta
@@ -902,6 +985,7 @@ class ClassicGame:
         except Exception as e:
             GlobalState.games.pop(self.group_id, None)
             from chainnokizuna.db.redis import remove_game
+
             await remove_game(self.group_id)
             try:
                 await self.send_message(

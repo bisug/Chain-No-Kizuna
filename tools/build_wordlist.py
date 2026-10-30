@@ -26,6 +26,7 @@ while a false addition only adds a rare one. That veto is load-bearing: the
 first version of this rule deleted "email", which dwyl capitalises as "Email"
 but which is an ordinary noun.
 """
+
 import json
 import re
 import sys
@@ -70,7 +71,9 @@ def main() -> int:
     enable1 = word_set(fetch(ENABLE1_URL))
     popular = word_set(fetch(POPULAR_URL))
     curated = {w.lower() for w in json.load(open(CURATED_URL))}
-    print(f"  ENABLE1 {len(enable1):,} | popular {len(popular):,} | curated {len(curated):,}")
+    print(
+        f"  ENABLE1 {len(enable1):,} | popular {len(popular):,} | curated {len(curated):,}"
+    )
 
     # Anything dwyl spells with a capital is a proper noun until proven otherwise.
     proper_nouns = {
@@ -79,7 +82,9 @@ def main() -> int:
         if w.strip().isalpha() and re.search(r"[A-Z]", w.strip())
     }
 
-    current = set(open(OUT_PATH, encoding="utf-8").read().splitlines()) if OUT_PATH else set()
+    current = (
+        set(open(OUT_PATH, encoding="utf-8").read().splitlines()) if OUT_PATH else set()
+    )
     veto = enable1 | popular | curated
     removed = proper_nouns - veto
     words = (current - removed) | enable1
@@ -92,7 +97,10 @@ def main() -> int:
     # structure the bot actually queries, and a mismatch here is silent at runtime.
     dawg = CompletionDAWG(sorted(words))
     if len(dawg.keys()) != len(words):
-        print(f"ERROR: DAWG holds {len(dawg.keys()):,} of {len(words):,} words", file=sys.stderr)
+        print(
+            f"ERROR: DAWG holds {len(dawg.keys()):,} of {len(words):,} words",
+            file=sys.stderr,
+        )
         return 1
     for w in ("apple", "email", "running", "absenteeisms", "zebra"):
         if w not in dawg:
@@ -117,7 +125,10 @@ def main() -> int:
     five = sorted(w for w in words if len(w) == 5)
     for path, pool in ((COMMON_OUT, common), (FIVE_OUT, five)):
         if not set(pool) <= words:
-            print(f"ERROR: {path} contains words absent from the main list", file=sys.stderr)
+            print(
+                f"ERROR: {path} contains words absent from the main list",
+                file=sys.stderr,
+            )
             return 1
         with open(path, "w", encoding="utf-8", newline="\n") as f:
             f.write(json.dumps(pool, indent=2) + "\n")

@@ -18,7 +18,9 @@ class IsAdmin(Filter):
             return True
 
         try:
-            member = await message.bot.get_chat_member(message.chat.id, message.from_user.id)
+            member = await message.bot.get_chat_member(
+                message.chat.id, message.from_user.id
+            )
         except TelegramBadRequest as e:
             if "CHAT_ADMIN_REQUIRED" in str(e):
                 return False

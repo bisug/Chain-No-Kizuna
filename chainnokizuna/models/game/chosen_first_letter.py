@@ -26,8 +26,7 @@ class ChosenFirstLetterGame(ClassicGame):
         await self.send_message(
             (
                 f"The chosen first letter is <i>{self.current_word.upper()}</i>.\n\n"
-                "Turn order:\n"
-                + "\n".join(p.mention for p in self.players_in_game)
+                "Turn order:\n" + "\n".join(p.mention for p in self.players_in_game)
             ),
-            parse_mode=ParseMode.HTML
+            parse_mode=ParseMode.HTML,
         )

@@ -19,7 +19,10 @@ router = Router(name=__name__)
 router.message.filter(IsMainBot())
 
 
-@router.message(CommandStart(deep_link=True, magic=F.args == "help"), F.chat.type == ChatType.PRIVATE)
+@router.message(
+    CommandStart(deep_link=True, magic=F.args == "help"),
+    F.chat.type == ChatType.PRIVATE,
+)
 @router.message(Command("help"))
 async def cmd_help(message: types.Message) -> None:
     if message.chat.id < 0:
@@ -28,7 +31,7 @@ async def cmd_help(message: types.Message) -> None:
             "Please use this command in private.",
             reply_markup=inline_keyboard_from_button(
                 types.InlineKeyboardButton(text="📨 Get Help", url=start_link)
-            )
+            ),
         )
         return
 
@@ -46,13 +49,19 @@ async def cmd_help(message: types.Message) -> None:
         "/feedback - Contact developer\n\n"
         "<i>Select an option below for more resources:</i>",
         parse_mode=ParseMode.HTML,
-        reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
-            [
-                types.InlineKeyboardButton(text="Updates", url=f"https://t.me/{UPDATE_CHANNEL}"),
-                types.InlineKeyboardButton(text="Support Chat", url=f"https://t.me/{SUPPORT_GROUP}"),
+        reply_markup=types.InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    types.InlineKeyboardButton(
+                        text="Updates", url=f"https://t.me/{UPDATE_CHANNEL}"
+                    ),
+                    types.InlineKeyboardButton(
+                        text="Support Chat", url=f"https://t.me/{SUPPORT_GROUP}"
+                    ),
+                ]
             ]
-        ]),
-        link_preview_options=types.LinkPreviewOptions(is_disabled=True)
+        ),
+        link_preview_options=types.LinkPreviewOptions(is_disabled=True),
     )
 
 
@@ -75,7 +84,7 @@ async def cmd_gameinfo(message: types.Message) -> None:
         "The lowest scoring players are eliminated after each round.\n\n"
         "<b>/startmelim</b> - Mixed elimination game (restricted reward)\n"
         f"Elimination game with different modes. Try at the <a href='https://t.me/{UPDATE_CHANNEL}'>official group</a>.",
-        parse_mode=ParseMode.HTML
+        parse_mode=ParseMode.HTML,
     )
 
 
@@ -107,9 +116,10 @@ async def cmd_ping(message: types.Message) -> None:
     start = time.time()
     msg = await message.reply("Pong!")
     end = time.time()
-    
+
     try:
         import psutil
+
         cpu = psutil.cpu_percent()
         mem = psutil.virtual_memory().percent
         sys_info = f"\nCreate Time: <code>{end - start:.3f}s</code>\nCPU: <code>{cpu}%</code>\nRAM: <code>{mem}%</code>"
@@ -140,7 +150,7 @@ async def cmd_runinfo(message: types.Message) -> None:
         f"Total games: <code>{len(GlobalState.games)}</code>\n"
         f"Running games: <code>{len([g for g in GlobalState.games.values() if g.state == GameState.RUNNING])}</code>\n"
         f"Players: <code>{sum(len(g.players) for g in GlobalState.games.values())}</code>",
-        parse_mode=ParseMode.HTML
+        parse_mode=ParseMode.HTML,
     )
 
 
@@ -169,7 +179,8 @@ async def cmd_playinggroups(message: types.Message) -> None:
 
         game = GlobalState.games[group_id]
         groups.append(
-            text + (
+            text
+            + (
                 f" <code>{group_id}</code> "
                 f"{len(game.players_in_game)}/{len(game.players)}P "
                 f"{game.turns}W {game.time_left}s"

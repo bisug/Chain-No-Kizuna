@@ -1,4 +1,5 @@
 """Regression tests for the fail-closed configuration (removed hardcoded credentials)."""
+
 import importlib
 import os
 import unittest
@@ -130,14 +131,22 @@ class TestOptionalVariables(unittest.TestCase):
 class TestNoHardcodedCredentials(unittest.TestCase):
     """The committed secrets must not come back as defaults."""
 
-    FORBIDDEN = ("8533283359", "8515282600", "sumiloo", "cluster0.nb0umdm", "gQAAAAAAAbZ")
+    FORBIDDEN = (
+        "8533283359",
+        "8515282600",
+        "sumiloo",
+        "cluster0.nb0umdm",
+        "gQAAAAAAAbZ",
+    )
 
     def test_source_contains_no_credential_literals(self):
         import pathlib
 
         source = pathlib.Path(config.__file__).read_text()
         for fragment in self.FORBIDDEN:
-            self.assertNotIn(fragment, source, f"config.py must not contain {fragment!r}")
+            self.assertNotIn(
+                fragment, source, f"config.py must not contain {fragment!r}"
+            )
 
 
 if __name__ == "__main__":

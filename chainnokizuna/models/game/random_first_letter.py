@@ -26,9 +26,8 @@ class RandomFirstLetterGame(ClassicGame):
 
         await self.send_message(
             f"The first word is <i>{self.current_word.capitalize()}</i>.\n\n"
-            "Turn order:\n"
-            + "\n".join(p.mention for p in self.players_in_game),
-            parse_mode=ParseMode.HTML
+            "Turn order:\n" + "\n".join(p.mention for p in self.players_in_game),
+            parse_mode=ParseMode.HTML,
         )
 
         self.change_first_letter()

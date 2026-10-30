@@ -6,6 +6,7 @@ config.py refuses to import without credentials, so the required variables are
 stubbed here before any application module is imported. Tests that need a
 different value set it explicitly and reloads the module.
 """
+
 import os
 
 os.environ.setdefault("TOKEN", "123456789:TESTTOKENforunitundertest000000")

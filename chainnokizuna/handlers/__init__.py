@@ -5,14 +5,7 @@ routers = [
     misc.router,
     stats.router,
     wordlist.router,
-    gameplay.gameplay_router
+    gameplay.gameplay_router,
 ]
 
-__all__ = (
-    "gameplay",
-    "info",
-    "misc",
-    "stats",
-    "wordlist",
-    "routers"
-)
+__all__ = ("gameplay", "info", "misc", "stats", "wordlist", "routers")

@@ -8,7 +8,13 @@ from chainnokizuna.core.resources import GlobalState, vp_bot
 from config import GameState, VIP, VIP_GROUP, UPDATE_CHANNEL
 from chainnokizuna.utils.decorators import send_groups_only_message
 from chainnokizuna.filters import HasGameInstance, IsAdmin, IsOwner, IsMainBot
-from chainnokizuna.models import ClassicGame, EliminationGame, GAME_MODES, MixedEliminationGame, GuessTheWordGame
+from chainnokizuna.models import (
+    ClassicGame,
+    EliminationGame,
+    GAME_MODES,
+    MixedEliminationGame,
+    GuessTheWordGame,
+)
 from chainnokizuna.services.words import Words
 from aiogram import Router, types, Bot, F, html
 from aiogram.enums import ParseMode
@@ -34,7 +40,7 @@ async def start_game(message: types.Message, game_type: Type[ClassicGame]) -> No
         await message.reply(
             "<b>🛠 Maintenance mode is on.</b> Games are temporarily disabled.\n"
             "This is likely due to a pending bot update.",
-            parse_mode=ParseMode.HTML
+            parse_mode=ParseMode.HTML,
         )
         return
 
@@ -43,7 +49,7 @@ async def start_game(message: types.Message, game_type: Type[ClassicGame]) -> No
         await message.reply(
             "<b>⚠️ Word list unavailable.</b> I can't start a word chain game right now.\n"
             "Please try again later.",
-            parse_mode=ParseMode.HTML
+            parse_mode=ParseMode.HTML,
         )
         return
 
@@ -52,18 +58,19 @@ async def start_game(message: types.Message, game_type: Type[ClassicGame]) -> No
         await message.reply(
             "<b>⚠️ Slow mode is enabled</b> in this group, so the bot cannot function properly.\n"
             "If you are a group admin, please disable slow mode to start games.",
-            parse_mode=ParseMode.HTML
+            parse_mode=ParseMode.HTML,
         )
         return
 
     if (
-        game_type is MixedEliminationGame and message.chat.id not in VIP_GROUP
+        game_type is MixedEliminationGame
+        and message.chat.id not in VIP_GROUP
         and message.from_user.id not in VIP
     ):
         await message.reply(
             "<b>🚫 This game mode is a restricted reward.</b>\n"
             f"You can try this game mode at the <a href='https://t.me/{UPDATE_CHANNEL}'>official group</a>.",
-            parse_mode=ParseMode.HTML
+            parse_mode=ParseMode.HTML,
         )
         return
 
@@ -89,7 +96,10 @@ async def cmd_startgame(message: types.Message, command: CommandObject) -> None:
             await start_game(message, mode)
             return
 
-    await message.reply("Unknown game mode. Use <code>/gameinfo</code> for available modes.", parse_mode=ParseMode.HTML)
+    await message.reply(
+        "Unknown game mode. Use <code>/gameinfo</code> for available modes.",
+        parse_mode=ParseMode.HTML,
+    )
 
 
 @gameplay_router.message(Command("new"))
@@ -170,7 +180,10 @@ async def cmd_killgame(message: types.Message, command: CommandObject) -> None:
 @gameplay_router.message(Command("forceskip"), IsOwner(), HasGameInstance())
 async def cmd_forceskip(message: types.Message) -> None:
     group_id = message.chat.id
-    if GlobalState.games[group_id].state == GameState.RUNNING and not GlobalState.games[group_id].answered:
+    if (
+        GlobalState.games[group_id].state == GameState.RUNNING
+        and not GlobalState.games[group_id].answered
+    ):
         GlobalState.games[group_id].time_left = 0
 
 
@@ -198,8 +211,6 @@ async def cmd_remvp(message: types.Message) -> None:
     await GlobalState.games[message.chat.id].remvp(message)
 
 
-
-
 @gameplay_router.message(HasGameInstance(), F.text.regexp(r"^[a-zA-Z]{1,100}$"))
 @gameplay_router.edited_message(HasGameInstance(), F.text.regexp(r"^[a-zA-Z]{1,100}$"))
 async def answer_handler(message: types.Message, bot: Bot) -> None:
@@ -222,9 +233,8 @@ async def answer_handler(message: types.Message, bot: Bot) -> None:
             return
 
     game = GlobalState.games[message.chat.id]
-    is_turn_holder = (
-        game.allow_any_player_answer
-        or bool(game.players_in_game and message.from_user.id == game.players_in_game[0].user_id)
+    is_turn_holder = game.allow_any_player_answer or bool(
+        game.players_in_game and message.from_user.id == game.players_in_game[0].user_id
     )
     if is_turn_holder and not game.answered and game.accepting_answers:
         await game.handle_answer(message)

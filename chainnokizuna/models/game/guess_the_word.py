@@ -15,13 +15,22 @@ from config import GameState
 
 logger = logging.getLogger(__name__)
 
+
 class GuessTheWordGame(ClassicGame):
     name = "guess the word"
     command = "startguess"
     # Uses its own bundled 5-letter JSON files, not the word-list DAWG.
     requires_word_list = False
 
-    __slots__ = ("target_word", "guess_count", "max_guesses", "guess_history", "dictionary", "last_waiting_msg_id", "state_lock")
+    __slots__ = (
+        "target_word",
+        "guess_count",
+        "max_guesses",
+        "guess_history",
+        "dictionary",
+        "last_waiting_msg_id",
+        "state_lock",
+    )
 
     def __init__(self, group_id: int) -> None:
         super().__init__(group_id)
@@ -37,13 +46,15 @@ class GuessTheWordGame(ClassicGame):
 
     def to_dict(self) -> dict:
         data = super().to_dict()
-        data.update({
-            "target_word": self.target_word,
-            "guess_count": self.guess_count,
-            "max_guesses": self.max_guesses,
-            "guess_history": self.guess_history,
-            "last_waiting_msg_id": self.last_waiting_msg_id,
-        })
+        data.update(
+            {
+                "target_word": self.target_word,
+                "guess_count": self.guess_count,
+                "max_guesses": self.max_guesses,
+                "guess_history": self.guess_history,
+                "last_waiting_msg_id": self.last_waiting_msg_id,
+            }
+        )
         return data
 
     @classmethod
@@ -53,7 +64,7 @@ class GuessTheWordGame(ClassicGame):
         game.guess_count = data.get("guess_count", 0)
         game.max_guesses = data.get("max_guesses", 30)
         game.guess_history = data.get("guess_history", [])
-        game.dictionary = [] # Will be lazy loaded in initialization if missing
+        game.dictionary = []  # Will be lazy loaded in initialization if missing
         game.allow_any_player_answer = True
         game.last_waiting_msg_id = data.get("last_waiting_msg_id")
         game.state_lock = asyncio.Lock()
@@ -63,6 +74,7 @@ class GuessTheWordGame(ClassicGame):
         # Load validation dictionary (all words)
         try:
             import aiofiles
+
             async with aiofiles.open("chainnokizuna/data/all-five.json", "rb") as f:
                 valid_data = orjson.loads(await f.read())
             self.dictionary = [w.lower() for w in valid_data]
@@ -72,7 +84,10 @@ class GuessTheWordGame(ClassicGame):
 
         try:
             import aiofiles
-            async with aiofiles.open("chainnokizuna/data/commonfiveletterwords.json", "rb") as f:
+
+            async with aiofiles.open(
+                "chainnokizuna/data/commonfiveletterwords.json", "rb"
+            ) as f:
                 target_data = orjson.loads(await f.read())
             target_dictionary = [w.lower() for w in target_data.keys() if len(w) == 5]
             self.target_word = random.choice(target_dictionary)
@@ -85,7 +100,7 @@ class GuessTheWordGame(ClassicGame):
         self.guess_history = []
         self.accepting_answers = True
         self.time_left = self.time_limit
-        
+
         await self.send_message(
             "🎮 <b>Guess the Word Game Started!</b>\n\n"
             "I've picked a secret 5-letter word. Guess it to win!\n"
@@ -94,7 +109,7 @@ class GuessTheWordGame(ClassicGame):
             "🟨 = Correct letter, wrong spot\n"
             "🟥 = Wrong letter\n\n"
             f"You have <b>{self.max_guesses}</b> total guesses. Good luck!",
-            parse_mode=ParseMode.HTML
+            parse_mode=ParseMode.HTML,
         )
 
     async def send_turn_message(self) -> None:
@@ -125,19 +140,24 @@ class GuessTheWordGame(ClassicGame):
 
             # Dictionary validation
             if not self.dictionary:
-                 try:
+                try:
                     import aiofiles
-                    async with aiofiles.open("chainnokizuna/data/all-five.json", "rb") as f:
+
+                    async with aiofiles.open(
+                        "chainnokizuna/data/all-five.json", "rb"
+                    ) as f:
                         valid_data = orjson.loads(await f.read())
                     self.dictionary = [w.lower() for w in valid_data]
-                 except Exception as e:
+                except Exception as e:
                     # Never swallow this: an empty dictionary rejects every guess as
                     # "not in my 5-letter dictionary", leaving a resumed game unplayable
                     # with no clue why.
                     logger.error(f"Failed to load validation dictionary: {e}")
-            
+
             if guess not in self.dictionary:
-                await message.reply(f"<i>{guess.upper()}</i> is not in my 5-letter dictionary!")
+                await message.reply(
+                    f"<i>{guess.upper()}</i> is not in my 5-letter dictionary!"
+                )
                 return
 
             # Delete previous waiting message if it exists
@@ -150,25 +170,28 @@ class GuessTheWordGame(ClassicGame):
 
             # Dynamic Participation: Add player if they haven't "joined"
             from chainnokizuna.models.player import Player
-            player = next((p for p in self.players if p.user_id == message.from_user.id), None)
+
+            player = next(
+                (p for p in self.players if p.user_id == message.from_user.id), None
+            )
             if not player:
                 player = await Player.create(message.from_user)
                 self.players.append(player)
 
             self.guess_count += 1
-            
+
             # Calculate hints
             result = self._calculate_hints(guess)
             emojis_spaced = " ".join(list(result))
             history_line = f"{emojis_spaced} <b>{guess.upper()}</b>"
             self.guess_history.append(history_line)
-            
+
             # player is guaranteed non-None here: it was just found or created above.
             if guess == self.target_word:
                 self.answered = True
             player.word_count += 1
-            player.score += 100 # Bonus for winning
-            
+            player.score += 100  # Bonus for winning
+
             header = f"<b>5-letter mode</b> · {self.guess_count}/{self.max_guesses}"
             history_display = "\n".join(self.guess_history)
 
@@ -178,7 +201,7 @@ class GuessTheWordGame(ClassicGame):
                 f"{history_display}\n\n"
                 f"The word was indeed <b>{self.target_word.upper()}</b>.\n"
                 f"Winner: {message.from_user.mention_html()}",
-                parse_mode=ParseMode.HTML
+                parse_mode=ParseMode.HTML,
             )
             await self.handle_game_end_winner(message.from_user)
             return
@@ -187,10 +210,13 @@ class GuessTheWordGame(ClassicGame):
             header = f"<b>5-letter mode</b> · {self.guess_count}/{self.max_guesses}"
             # Telegram limit is 4096. Each line is ~20 chars. 100 lines = 2000 chars. Safe.
             # But we truncate just in case to keep the UI clean.
-            visible_history = self.guess_history[-15:] # Show last 15 guesses
+            visible_history = self.guess_history[-15:]  # Show last 15 guesses
             history_display = "\n".join(visible_history)
             if len(self.guess_history) > 15:
-                history_display = f"... ({len(self.guess_history) - 15} previous guesses)\n" + history_display
+                history_display = (
+                    f"... ({len(self.guess_history) - 15} previous guesses)\n"
+                    + history_display
+                )
 
             hint_msg = f"{header}\n\n{history_display}"
 
@@ -200,10 +226,11 @@ class GuessTheWordGame(ClassicGame):
                     f"You've used all {self.max_guesses} guesses.\n"
                     f"The word was: <b>{self.target_word.upper()}</b>.\n"
                     f"Try harder next time! 😉",
-                    parse_mode=ParseMode.HTML
+                    parse_mode=ParseMode.HTML,
                 )
-                self.answered = True # To end the loop
+                self.answered = True  # To end the loop
                 from chainnokizuna.db.redis import remove_game
+
                 GlobalState.games.pop(self.group_id, None)
                 await remove_game(self.group_id)
                 return
@@ -211,6 +238,7 @@ class GuessTheWordGame(ClassicGame):
             await message.reply(hint_msg)
 
             from chainnokizuna.db.redis import save_game
+
             asyncio.create_task(save_game(self))
 
     def _calculate_hints(self, guess: str) -> str:
@@ -222,7 +250,7 @@ class GuessTheWordGame(ClassicGame):
         for i in range(5):
             if guess_list[i] == target_list[i]:
                 hints[i] = "🟩"
-                target_list[i] = None # Mark as used
+                target_list[i] = None  # Mark as used
                 guess_list[i] = None
 
         # Second pass: Yellow
@@ -230,7 +258,7 @@ class GuessTheWordGame(ClassicGame):
             if guess_list[i] is not None:
                 if guess_list[i] in target_list:
                     hints[i] = "🟨"
-                    target_list[target_list.index(guess_list[i])] = None # Mark as used
+                    target_list[target_list.index(guess_list[i])] = None  # Mark as used
 
         return "".join(hints)
 
@@ -241,7 +269,9 @@ class GuessTheWordGame(ClassicGame):
     async def running_phase_tick(self) -> bool:
         if self.answered:
             # If game ended via correct guess or max guesses
-            if self.guess_count >= self.max_guesses or (self.players_in_game and self.state == GameState.RUNNING):
+            if self.guess_count >= self.max_guesses or (
+                self.players_in_game and self.state == GameState.RUNNING
+            ):
                 return True
             self.answered = False
             return False
@@ -254,14 +284,18 @@ class GuessTheWordGame(ClassicGame):
                 # Delete previous message if it exists
                 if self.last_waiting_msg_id:
                     try:
-                        await bot.delete_message(self.group_id, self.last_waiting_msg_id)
+                        await bot.delete_message(
+                            self.group_id, self.last_waiting_msg_id
+                        )
                     except Exception:
                         pass
-                
-                msg = await self.send_message("The Guess the Word game is still waiting for the first guess! Use /end to cancel if you're stuck.")
+
+                msg = await self.send_message(
+                    "The Guess the Word game is still waiting for the first guess! Use /end to cancel if you're stuck."
+                )
                 self.last_waiting_msg_id = msg.message_id
-            self.time_left = self.time_limit # Reset timer
-            
+            self.time_left = self.time_limit  # Reset timer
+
         return False
 
     async def main_loop(self, message: types.Message) -> None:
@@ -270,15 +304,17 @@ class GuessTheWordGame(ClassicGame):
         try:
             self.state = GameState.RUNNING
             await self.running_initialization()
-            
+
             # Initial save
             from chainnokizuna.db.redis import register_active_game, save_game
+
             await save_game(self)
             # Guess the Word skips the joining phase, so this is its first save
             # and the point where the active-games membership is claimed.
             await register_active_game(self.group_id)
 
             from chainnokizuna.utils.timer import GameTimer
+
             async for delta in GameTimer():
                 if self.state == GameState.RUNNING:
                     if self.time_left < 0:
@@ -287,7 +323,7 @@ class GuessTheWordGame(ClassicGame):
                         raise ValueError("Prolonged negative timer.")
 
                     for _ in range(delta):
-                         if await self.running_phase_tick():
+                        if await self.running_phase_tick():
                             await self.update_db()
                             return
                 elif self.state == GameState.KILLGAME:
@@ -297,9 +333,12 @@ class GuessTheWordGame(ClassicGame):
             logger.error(f"Error in GuessTheWordGame loop: {e}")
             GlobalState.games.pop(self.group_id, None)
             from chainnokizuna.db.redis import remove_game
+
             await remove_game(self.group_id)
             try:
-                await self.send_message(f"Game ended due to error: <code>{html.quote(str(e))}</code>")
+                await self.send_message(
+                    f"Game ended due to error: <code>{html.quote(str(e))}</code>"
+                )
             except Exception:
                 pass
             raise
@@ -307,29 +346,35 @@ class GuessTheWordGame(ClassicGame):
     async def update_db(self) -> None:
         """Override to track Guess the Word wins specifically."""
         from chainnokizuna.core.resources import get_db
+
         db = get_db()
-        
+
         # Same participant shape as ClassicGame.update_db, so both modes feed
         # one schema. The old extra "name" field held rendered HTML markup that
         # nothing read, and storing markup in the database invites injection if
         # it is ever reused.
-        participants = [{
-            "user_id": p.user_id,
-            "won": p in self.players_in_game,
-            "word_count": p.word_count,
-            "letter_count": p.letter_count,
-            "longest_word": p.longest_word,
-            "full_name": p._name,
-            "username": p._username,
-        } for p in self.players]
-        
+        participants = [
+            {
+                "user_id": p.user_id,
+                "won": p in self.players_in_game,
+                "word_count": p.word_count,
+                "letter_count": p.letter_count,
+                "longest_word": p.longest_word,
+                "full_name": p._name,
+                "username": p._username,
+            }
+            for p in self.players
+        ]
+
         game_doc = {
             "group_id": self.group_id,
             "game_mode": self.__class__.__name__,
-            "winner_id": self.players_in_game[0].user_id if self.players_in_game else None,
+            "winner_id": self.players_in_game[0].user_id
+            if self.players_in_game
+            else None,
             "start_time": self.start_time,
             "end_time": self.end_time,
-            "participants": participants
+            "participants": participants,
         }
         await db.games.insert_one(game_doc)
 
@@ -337,18 +382,19 @@ class GuessTheWordGame(ClassicGame):
             return
 
         from pymongo import UpdateOne
+
         operations = []
         for p in participants:
             inc_data = {
                 "game_count": 1,
                 "win_count": 1 if p["won"] else 0,
                 "word_count": p["word_count"],
-                "letter_count": p["letter_count"]
+                "letter_count": p["letter_count"],
             }
             # Special field for this mode
             if p["won"]:
                 inc_data["guess_word_wins"] = 1
-                
+
             operations.append(
                 UpdateOne(
                     {"_id": p["user_id"]},
@@ -356,11 +402,11 @@ class GuessTheWordGame(ClassicGame):
                         "$inc": inc_data,
                         "$set": {
                             "full_name": p["full_name"],
-                            "username": p["username"]
+                            "username": p["username"],
                         },
-                        "$max": {"longest_word": p["longest_word"]}
+                        "$max": {"longest_word": p["longest_word"]},
                     },
-                    upsert=True
+                    upsert=True,
                 )
             )
 
@@ -369,7 +415,10 @@ class GuessTheWordGame(ClassicGame):
 
     async def addvp(self, message: types.Message) -> None:
         """Explicitly disable VP for this mode."""
-        await message.reply("Virtual Players are not supported in <b>Guess the Word</b> mode.", parse_mode=ParseMode.HTML)
+        await message.reply(
+            "Virtual Players are not supported in <b>Guess the Word</b> mode.",
+            parse_mode=ParseMode.HTML,
+        )
 
     async def handle_game_end(self) -> None:
         self.end_time = datetime.now(timezone.utc).replace(microsecond=0)
@@ -393,24 +442,26 @@ class GuessTheWordGame(ClassicGame):
             grid += f"\n... ({len(self.guess_history) - 12} more)"
 
         winner = self.players_in_game[0].mention if self.players_in_game else "No one"
-        
+
         text = "🏁 <b>Guess the Word Summary!</b>\n\n"
         text += f"Word: <b>{self.target_word.upper()}</b>\n"
         text += f"Winner: {winner}\n"
         text += f"Guesses: {self.guess_count}/{self.max_guesses}\n"
         text += f"Time: <code>{game_len_str}</code>\n\n"
-        
+
         text += f"📊 <b>Guess History:</b>\n{grid}\n\n"
-        
+
         text += "💡 <b>Educational Reveal:</b>\n"
         # The data file is prose, not markup: it contains bare "&" and "<"
         # (e.g. "mayor" -> "borough, &c."), which Telegram rejects outright.
         text += f"<b>Meaning:</b> <i>{html.quote(meaning)}</i>\n"
-        text += f"<b>Example:</b> <i>\"{html.quote(example)}\"</i>"
+        text += f'<b>Example:</b> <i>"{html.quote(example)}"</i>'
 
         from chainnokizuna.core.resources import GlobalState
+
         await self.send_message(text, parse_mode=ParseMode.HTML)
 
         GlobalState.games.pop(self.group_id, None)
         from chainnokizuna.db.redis import remove_game
+
         await remove_game(self.group_id)

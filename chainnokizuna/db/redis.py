@@ -20,16 +20,25 @@ GAME_KEY_PREFIX = "game:"
 def _get_redis():
     """Lazy import to avoid circular dependencies."""
     from chainnokizuna.core.resources import vk
+
     return vk
 
 
 def _get_game_class(type_name: str):
     """Resolve a game class from its type name string."""
     from chainnokizuna.models.game import (
-        ClassicGame, HardModeGame, ChaosGame, ChosenFirstLetterGame,
-        RandomFirstLetterGame, BannedLettersGame, RequiredLetterGame,
-        EliminationGame, MixedEliminationGame, GuessTheWordGame,
+        ClassicGame,
+        HardModeGame,
+        ChaosGame,
+        ChosenFirstLetterGame,
+        RandomFirstLetterGame,
+        BannedLettersGame,
+        RequiredLetterGame,
+        EliminationGame,
+        MixedEliminationGame,
+        GuessTheWordGame,
     )
+
     mapping = {
         "ClassicGame": ClassicGame,
         "HardModeGame": HardModeGame,
@@ -71,7 +80,9 @@ async def save_game(game: "ClassicGame") -> None:
             return
         except Exception as e:
             if attempt == 2:
-                logger.error(f"Failed to save game state for {game.group_id} after 3 attempts: {e}")
+                logger.error(
+                    f"Failed to save game state for {game.group_id} after 3 attempts: {e}"
+                )
             else:
                 await asyncio.sleep(0.1 * (attempt + 1))
 
@@ -115,17 +126,16 @@ async def move_saved_game(old_group_id: int, new_group_id: int) -> None:
         logger.error(f"Failed to move saved game {old_group_id} -> {new_group_id}: {e}")
 
 
-
 async def remove_game(group_id: int) -> None:
     """Remove a game's state from Redis when it ends."""
     import asyncio
-    
+
     redis_client = _get_redis()
     if redis_client is None:
         return
 
     key = f"{GAME_KEY_PREFIX}{group_id}"
-    
+
     for attempt in range(3):
         try:
             await redis_client.delete(key)
@@ -133,10 +143,11 @@ async def remove_game(group_id: int) -> None:
             return
         except Exception as e:
             if attempt == 2:
-                logger.error(f"Failed to remove game state for {group_id} after 3 attempts: {e}")
+                logger.error(
+                    f"Failed to remove game state for {group_id} after 3 attempts: {e}"
+                )
             else:
                 await asyncio.sleep(0.1 * (attempt + 1))
-
 
 
 async def load_all_games() -> list["ClassicGame"]:
@@ -159,7 +170,7 @@ async def load_all_games() -> list["ClassicGame"]:
         # Catch game keys the set does not list. SCAN rather than KEYS so this
         # does not block the server, and it only runs once at startup.
         async for key in redis_client.scan_iter(match=f"{GAME_KEY_PREFIX}*", count=200):
-            gid = key[len(GAME_KEY_PREFIX):]
+            gid = key[len(GAME_KEY_PREFIX) :]
             if gid:
                 group_ids.add(gid)
 
@@ -183,7 +194,9 @@ async def load_all_games() -> list["ClassicGame"]:
             type_name = data.get("type", "ClassicGame")
             game_cls = _get_game_class(type_name)
             if game_cls is None:
-                logger.warning(f"Unknown game type '{type_name}' for group {gid}, skipping.")
+                logger.warning(
+                    f"Unknown game type '{type_name}' for group {gid}, skipping."
+                )
                 await redis_client.srem(ACTIVE_GAMES_KEY, gid)
                 continue
 
@@ -191,7 +204,9 @@ async def load_all_games() -> list["ClassicGame"]:
             games.append(game)
             # Re-assert membership so the index converges on the real keys.
             await redis_client.sadd(ACTIVE_GAMES_KEY, gid)
-            logger.info(f"Restored {type_name} for group {gid} ({len(game.players)} players)")
+            logger.info(
+                f"Restored {type_name} for group {gid} ({len(game.players)} players)"
+            )
 
     except Exception as e:
         logger.error(f"Failed to load game states: {e}")

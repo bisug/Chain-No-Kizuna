@@ -7,12 +7,13 @@ from chainnokizuna.core.resources import get_vk
 
 logger = logging.getLogger(__name__)
 
+
 class LeaderElection:
     """
     Implements a simple leader election mechanism using Redis.
     Ensures only one bot instance is active (polling) at a time.
     """
-    
+
     KEY = "bot:leader"
     TTL = 10  # expire key after 10 seconds
     RENEW_INTERVAL = 5  # renew leadership every 5 seconds
@@ -31,7 +32,9 @@ class LeaderElection:
         try:
             redis_client = get_vk()
             # SET NX EX: Set if Not Exists, Expire in TTL seconds
-            success = await redis_client.set(self.KEY, self.bot_id, ex=self.TTL, nx=True)
+            success = await redis_client.set(
+                self.KEY, self.bot_id, ex=self.TTL, nx=True
+            )
             if success:
                 self._is_leader = True
                 self._start_renew_loop()
@@ -52,7 +55,7 @@ class LeaderElection:
             except asyncio.CancelledError:
                 pass
             self._renew_task = None
-        
+
         try:
             redis_client = get_vk()
             script = """
@@ -88,7 +91,9 @@ class LeaderElection:
                     return 0
                 end
                 """
-                result = await redis_client.eval(script, 1, self.KEY, self.bot_id, self.TTL)
+                result = await redis_client.eval(
+                    script, 1, self.KEY, self.bot_id, self.TTL
+                )
                 if not result:
                     logger.warning("Lost leadership during renewal!")
                     self._is_leader = False

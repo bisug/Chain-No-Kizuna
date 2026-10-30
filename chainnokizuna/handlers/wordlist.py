@@ -15,7 +15,9 @@ router = Router(name=__name__)
 router.message.filter(IsMainBot())
 
 
-async def _collect_rejections(db, words_to_add: list[str]) -> tuple[list, list, list[tuple[str, str]]]:
+async def _collect_rejections(
+    db, words_to_add: list[str]
+) -> tuple[list, list, list[tuple[str, str]]]:
     """Split out which of words_to_add were already rejected, and why.
 
     This used to stream the entire accepted=False collection and filter in
@@ -71,7 +73,7 @@ async def cmd_exists(message: types.Message) -> None:
 
     await message.reply(
         f"<i>{word.capitalize()}</i> is <b>{'' if check_word_existence(word) else 'not '}in</b> my dictionary.",
-        parse_mode=ParseMode.HTML
+        parse_mode=ParseMode.HTML,
     )
 
 
@@ -98,7 +100,9 @@ async def cmd_reqaddword(message: types.Message, command: CommandObject) -> None
         )
         return
 
-    existing, rejected, rejected_with_reason = await _collect_rejections(get_db(), words_to_add)
+    existing, rejected, rejected_with_reason = await _collect_rejections(
+        get_db(), words_to_add
+    )
 
     text = ""
     if words_to_add:
@@ -108,13 +112,11 @@ async def cmd_reqaddword(message: types.Message, command: CommandObject) -> None
 
         asyncio.create_task(
             send_admin_group(
-                message.from_user.mention_html(
-                    name=name
-                )
+                message.from_user.mention_html(name=name)
                 + " is requesting the addition of "
                 + ", ".join([f"<i>{w.capitalize()}</i>" for w in words_to_add])
                 + " to the word list. #reqaddword",
-                parse_mode=ParseMode.HTML
+                parse_mode=ParseMode.HTML,
             )
         )
     if existing:
@@ -139,13 +141,18 @@ async def cmd_addwords(message: types.Message, command: CommandObject) -> None:
         return
 
     db = get_db()
-    existing, rejected, rejected_with_reason = await _collect_rejections(db, words_to_add)
+    existing, rejected, rejected_with_reason = await _collect_rejections(
+        db, words_to_add
+    )
 
     text = ""
     if words_to_add:
         from pymongo import UpdateOne
+
         operations = [
-            UpdateOne({"word": w}, {"$set": {"accepted": True, "reason": None}}, upsert=True)
+            UpdateOne(
+                {"word": w}, {"$set": {"accepted": True, "reason": None}}, upsert=True
+            )
             for w in words_to_add
         ]
         await db.wordlist.bulk_write(operations)
@@ -164,17 +171,20 @@ async def cmd_addwords(message: types.Message, command: CommandObject) -> None:
     t = time.time()
     await Words.update()
     asyncio.create_task(
-        awaitable_to_coroutine(msg.edit_text(
-            msg.text + f"\n\nWord list updated. Time taken: <code>{time.time() - t:.3f}s</code>",
-            parse_mode=ParseMode.HTML
-        ))
+        awaitable_to_coroutine(
+            msg.edit_text(
+                msg.text
+                + f"\n\nWord list updated. Time taken: <code>{time.time() - t:.3f}s</code>",
+                parse_mode=ParseMode.HTML,
+            )
+        )
     )
     asyncio.create_task(
         bot.send_message(
             WORD_ADDITION_CHANNEL_ID,
             f"Added {', '.join([f'<i>{w.capitalize()}</i>' for w in words_to_add])} to the word list.",
             disable_notification=True,
-            parse_mode=ParseMode.HTML
+            parse_mode=ParseMode.HTML,
         )
     )
 
@@ -198,7 +208,7 @@ async def cmd_rejword(message: types.Message, command: CommandObject) -> None:
         await db.wordlist.update_one(
             {"word": word},
             {"$set": {"accepted": False, "reason": reason or None}},
-            upsert=True
+            upsert=True,
         )
 
     word = word.capitalize()
@@ -207,6 +217,11 @@ async def cmd_rejword(message: types.Message, command: CommandObject) -> None:
     elif r.get("accepted"):
         await message.reply(f"<i>{word}</i> was accepted.", parse_mode=ParseMode.HTML)
     elif not r.get("reason"):
-        await message.reply(f"<i>{word}</i> was already rejected.", parse_mode=ParseMode.HTML)
+        await message.reply(
+            f"<i>{word}</i> was already rejected.", parse_mode=ParseMode.HTML
+        )
     else:
-        await message.reply(f"<i>{word}</i> was already rejected. Reason: <code>{html.quote(r['reason'])}</code>.", parse_mode=ParseMode.HTML)
+        await message.reply(
+            f"<i>{word}</i> was already rejected. Reason: <code>{html.quote(r['reason'])}</code>.",
+            parse_mode=ParseMode.HTML,
+        )

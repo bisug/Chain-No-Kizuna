@@ -49,7 +49,6 @@ class Words:
                 logger.error(f"Word list not found at {WORDLIST_FILE}.")
                 return []
 
-
         async def get_words_from_db() -> list[str]:
             db = get_db()
             cursor = db.wordlist.find({"accepted": True}, {"word": 1, "_id": 0})
@@ -83,7 +82,9 @@ class Words:
         if not Words.count:
             # An empty DAWG makes get_random_word() return None, which crashes every
             # game mode that picks a starting word. Fail loudly instead of silently.
-            raise ValueError("Word list is empty (bundled file missing and no DB words).")
+            raise ValueError(
+                "Word list is empty (bundled file missing and no DB words)."
+            )
 
         logger.info(f"DAWG updated with {Words.count} words")
 
@@ -162,7 +163,7 @@ def get_random_word(
     banned_letters: Optional[list[str]] = None,
     exclude_words: Optional[set[str]] = None,
     pool: Optional[str] = None,
-    max_len: Optional[int] = None
+    max_len: Optional[int] = None,
 ) -> Optional[str]:
     """
     Retrieves a random word from the dictionary matching specific constraints.
@@ -238,4 +239,3 @@ async def get_random_word_async(**kwargs) -> Optional[str]:
         return get_random_word(**kwargs)
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, lambda: get_random_word(**kwargs))
-

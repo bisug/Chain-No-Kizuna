@@ -44,7 +44,7 @@ class RequiredLetterGame(ClassicGame):
                 f"Players remaining: {len(self.players_in_game)}/{len(self.players)}\n"
                 f"Total words: {self.turns}"
             ),
-            parse_mode=ParseMode.HTML
+            parse_mode=ParseMode.HTML,
         )
 
         self.reset_turn()
@@ -59,10 +59,12 @@ class RequiredLetterGame(ClassicGame):
             prefix=self.current_word[-1],
             required_letter=self.required_letter,
             exclude_words=self.used_words,
-            pool=self.word_pool
+            pool=self.word_pool,
         )
 
-    async def additional_answer_checkers(self, word: str, message: types.Message) -> bool:
+    async def additional_answer_checkers(
+        self, word: str, message: types.Message
+    ) -> bool:
         if self.required_letter not in word:
             await message.reply(
                 f"<i>{word.capitalize()}</i> does not include <i>{self.required_letter.upper()}</i>."
@@ -90,8 +92,7 @@ class RequiredLetterGame(ClassicGame):
         await self.send_message(
             (
                 f"The first word is <i>{self.current_word.capitalize()}</i>.\n\n"
-                "Turn order:\n"
-                + "\n".join(p.mention for p in self.players_in_game)
+                "Turn order:\n" + "\n".join(p.mention for p in self.players_in_game)
             ),
-            parse_mode=ParseMode.HTML
+            parse_mode=ParseMode.HTML,
         )

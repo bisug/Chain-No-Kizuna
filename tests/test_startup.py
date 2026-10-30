@@ -1,6 +1,7 @@
 """Regression tests for resource cleanup on a failed startup, and for the
 forward_origin replacement of the Bot API 7.0-deprecated forward_from field.
 """
+
 import unittest
 from unittest import mock
 
@@ -15,9 +16,13 @@ class TestCloseResourcesIsComplete(unittest.TestCase):
     """close_resources() must release the Bot sessions too, not just our own."""
 
     def test_closes_bot_sessions(self):
-        with mock.patch.object(resources.bot.session, "close", new=mock.AsyncMock()) as main_close, \
-             mock.patch.object(resources, "mongo_client", None), \
-             mock.patch.object(resources, "vk", None):
+        with (
+            mock.patch.object(
+                resources.bot.session, "close", new=mock.AsyncMock()
+            ) as main_close,
+            mock.patch.object(resources, "mongo_client", None),
+            mock.patch.object(resources, "vk", None),
+        ):
             run(close_resources())
         main_close.assert_awaited_once()
 
@@ -26,10 +31,12 @@ class TestCloseResourcesIsComplete(unittest.TestCase):
         fake_main.session.close = mock.AsyncMock()
         fake_vp = mock.MagicMock()
         fake_vp.session.close = mock.AsyncMock()
-        with mock.patch.object(resources, "bot", fake_main), \
-             mock.patch.object(resources, "vp_bot", fake_vp), \
-             mock.patch.object(resources, "mongo_client", None), \
-             mock.patch.object(resources, "vk", None):
+        with (
+            mock.patch.object(resources, "bot", fake_main),
+            mock.patch.object(resources, "vp_bot", fake_vp),
+            mock.patch.object(resources, "mongo_client", None),
+            mock.patch.object(resources, "vk", None),
+        ):
             run(close_resources())
         fake_main.session.close.assert_awaited_once()
         fake_vp.session.close.assert_awaited_once()
@@ -37,10 +44,12 @@ class TestCloseResourcesIsComplete(unittest.TestCase):
     def test_tolerates_no_resources_open(self):
         fake_bot = mock.MagicMock()
         fake_bot.session.close = mock.AsyncMock()
-        with mock.patch.object(resources, "bot", fake_bot), \
-             mock.patch.object(resources, "mongo_client", None), \
-             mock.patch.object(resources, "vk", None), \
-             mock.patch.object(resources, "vp_bot", None):
+        with (
+            mock.patch.object(resources, "bot", fake_bot),
+            mock.patch.object(resources, "mongo_client", None),
+            mock.patch.object(resources, "vk", None),
+            mock.patch.object(resources, "vp_bot", None),
+        ):
             run(close_resources())  # must not raise
 
 
@@ -50,9 +59,14 @@ class TestInitFailureRunsCleanup(unittest.TestCase):
     def test_init_failure_triggers_close_and_reraises(self):
         import chainnokizuna.__main__ as entry
 
-        with mock.patch.object(entry, "init_resources", new=mock.AsyncMock(
-                side_effect=RuntimeError("bad token"))), \
-             mock.patch.object(entry, "close_resources", new=mock.AsyncMock()) as closer:
+        with (
+            mock.patch.object(
+                entry,
+                "init_resources",
+                new=mock.AsyncMock(side_effect=RuntimeError("bad token")),
+            ),
+            mock.patch.object(entry, "close_resources", new=mock.AsyncMock()) as closer,
+        ):
             with self.assertRaises(RuntimeError):
                 run(entry.main())
         closer.assert_awaited_once()

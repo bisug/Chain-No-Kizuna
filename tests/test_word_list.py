@@ -4,6 +4,7 @@ get_random_word() returns Optional[str]. Before the fix, running_initialization
 assigned it to current_word and immediately called .capitalize() or [-1], so an
 empty dictionary crashed 8 of the 10 game modes.
 """
+
 import asyncio
 import os
 import tempfile
@@ -71,7 +72,9 @@ class TestEmptyDictionary(unittest.TestCase):
             game.state = 1
             with mock.patch.object(type(game), "send_message", new=mock.AsyncMock()):
                 run(game.running_initialization())
-            self.assertIsNotNone(game.current_word, f"{mode.__name__} needs no word list")
+            self.assertIsNotNone(
+                game.current_word, f"{mode.__name__} needs no word list"
+            )
 
 
 class TestUpdateRefusesEmptyDictionary(unittest.TestCase):
@@ -90,6 +93,7 @@ class TestUpdateRefusesEmptyDictionary(unittest.TestCase):
             async def gen():
                 for row in self._rows:
                     yield row
+
             return gen()
 
     class _Collection:
@@ -115,14 +119,19 @@ class TestUpdateRefusesEmptyDictionary(unittest.TestCase):
         The list is a real file on disk now rather than an HTTP response, so the
         tests point WORDLIST_FILE at a temp path instead of stubbing a session.
         """
+
         async def invoke():
             with tempfile.TemporaryDirectory() as tmp:
                 path = os.path.join(tmp, "wordlist.txt")
                 if file_present:
                     with open(path, "w", encoding="utf-8") as f:
                         f.write(file_text)
-                with mock.patch.object(words_mod, "WORDLIST_FILE", path), \
-                     mock.patch.object(words_mod, "get_db", return_value=self._DB(db_rows)):
+                with (
+                    mock.patch.object(words_mod, "WORDLIST_FILE", path),
+                    mock.patch.object(
+                        words_mod, "get_db", return_value=self._DB(db_rows)
+                    ),
+                ):
                     await Words.update()
 
         return run(invoke())
@@ -184,11 +193,15 @@ class TestAsyncWordPicker(unittest.TestCase):
 
     def test_async_honours_min_len(self):
         for _ in range(20):
-            self.assertGreaterEqual(len(run(words_mod.get_random_word_async(min_len=5))), 5)
+            self.assertGreaterEqual(
+                len(run(words_mod.get_random_word_async(min_len=5))), 5
+            )
 
     def test_async_honours_prefix(self):
         for _ in range(10):
-            self.assertTrue(run(words_mod.get_random_word_async(prefix="app")).startswith("app"))
+            self.assertTrue(
+                run(words_mod.get_random_word_async(prefix="app")).startswith("app")
+            )
 
     def test_async_returns_none_for_an_empty_dawg(self):
         Words.dawg = CompletionDAWG()
@@ -197,8 +210,12 @@ class TestAsyncWordPicker(unittest.TestCase):
 
     def test_async_matches_the_sync_implementation(self):
         """Same constraints, same distribution source, no behavioural change."""
-        for kwargs in ({"min_len": 5}, {"required_letter": "e"},
-                       {"banned_letters": ["z"]}, {"prefix": "app"}):
+        for kwargs in (
+            {"min_len": 5},
+            {"required_letter": "e"},
+            {"banned_letters": ["z"]},
+            {"prefix": "app"},
+        ):
             for _ in range(15):
                 word = run(words_mod.get_random_word_async(**kwargs))
                 if word is None:
@@ -216,10 +233,12 @@ class TestAsyncWordPicker(unittest.TestCase):
 
     def test_prefixed_call_does_not_touch_the_executor(self):
         """Prefixed is ~0.1ms, so it must stay inline rather than paying thread hand-off."""
+
         async def scenario():
             loop = asyncio.get_running_loop()
             with mock.patch.object(
-                loop, "run_in_executor",
+                loop,
+                "run_in_executor",
                 side_effect=AssertionError("prefixed path should not offload"),
             ):
                 return await words_mod.get_random_word_async(prefix="app")
@@ -252,10 +271,18 @@ class TestAsyncWordPicker(unittest.TestCase):
         .capitalize() fails. Hard mode asks for MAX_WORD_LENGTH_LIMIT (10).
         """
         player = Player(make_user())
-        Words.dawg = CompletionDAWG([
-            "apple", "banana", "pear", "zebra",
-            "extraordinary", "communication", "understanding", "professional",
-        ])
+        Words.dawg = CompletionDAWG(
+            [
+                "apple",
+                "banana",
+                "pear",
+                "zebra",
+                "extraordinary",
+                "communication",
+                "understanding",
+                "professional",
+            ]
+        )
         Words.count = 8
         for mode in DICTIONARY_DEPENDENT:
             if mode.__name__ == "MixedEliminationGame":
@@ -265,7 +292,9 @@ class TestAsyncWordPicker(unittest.TestCase):
                 game.players = [player] * 2
                 game.players_in_game = [player] * 2
                 game.state = 1
-                with mock.patch.object(type(game), "send_message", new=mock.AsyncMock()):
+                with mock.patch.object(
+                    type(game), "send_message", new=mock.AsyncMock()
+                ):
                     run(game.running_initialization())
                 self.assertIsNotNone(game.current_word)
 
@@ -281,10 +310,18 @@ class TestStartingWordNeverLeftUnset(unittest.TestCase):
 
     def setUp(self):
         self._dawg, self._count = Words.dawg, Words.count
-        Words.dawg = CompletionDAWG([
-            "apple", "banana", "pear", "zebra",
-            "extraordinary", "communication", "understanding", "professional",
-        ])
+        Words.dawg = CompletionDAWG(
+            [
+                "apple",
+                "banana",
+                "pear",
+                "zebra",
+                "extraordinary",
+                "communication",
+                "understanding",
+                "professional",
+            ]
+        )
         Words.count = 8
 
     def tearDown(self):
@@ -297,7 +334,9 @@ class TestStartingWordNeverLeftUnset(unittest.TestCase):
         game.set_banned_letters()
         # Guarantee the ban excludes everything in the fixture.
         game.banned_letters = ["a", "b", "c", "e", "r", "p", "z", "o", "n", "u"]
-        word = run(game.pick_starting_word(min_len=3, banned_letters=game.banned_letters))
+        word = run(
+            game.pick_starting_word(min_len=3, banned_letters=game.banned_letters)
+        )
         self.assertIsNotNone(word, "must relax the constraints rather than return None")
         self.assertIn(word, Words.dawg)
 
@@ -324,7 +363,9 @@ class TestStartingWordNeverLeftUnset(unittest.TestCase):
                 game.players = [player] * 2
                 game.players_in_game = [player] * 2
                 game.state = GameState.RUNNING
-                with mock.patch.object(type(game), "send_message", new=mock.AsyncMock()):
+                with mock.patch.object(
+                    type(game), "send_message", new=mock.AsyncMock()
+                ):
                     run(game.running_initialization())
                 self.assertIsNotNone(game.current_word)
 
@@ -357,7 +398,15 @@ class TestWordPools(unittest.TestCase):
     def setUp(self):
         self._dawg, self._count, self._pools = Words.dawg, Words.count, Words.pools
         Words.dawg = CompletionDAWG(
-            ["apple", "apply", "banana", "pear", "zebra", "xylophone", "pneumonoultramicroscopicsilicovolcanoconiosis"]
+            [
+                "apple",
+                "apply",
+                "banana",
+                "pear",
+                "zebra",
+                "xylophone",
+                "pneumonoultramicroscopicsilicovolcanoconiosis",
+            ]
         )
         Words.count = len(Words.dawg.keys())
         Words.pools = {"common": CompletionDAWG(["apple", "banana"])}
@@ -439,10 +488,13 @@ class TestBundledWordList(unittest.TestCase):
 
         out = subprocess.run(
             ["git", "check-ignore", self.path],
-            capture_output=True, text=True, cwd=os.path.dirname(os.path.dirname(__file__)),
+            capture_output=True,
+            text=True,
+            cwd=os.path.dirname(os.path.dirname(__file__)),
         )
         self.assertNotEqual(
-            out.returncode, 0,
+            out.returncode,
+            0,
             f"{self.path} is gitignored, so it will never be committed",
         )
 
@@ -482,12 +534,25 @@ class TestWordListCleanup(unittest.TestCase):
             self.words = set(f.read().splitlines())
 
     def test_proper_nouns_are_rejected(self):
-        for word in ("aaron", "aachen", "aberdeen", "abraham", "tchaikovsky", "schaumburg"):
+        for word in (
+            "aaron",
+            "aachen",
+            "aberdeen",
+            "abraham",
+            "tchaikovsky",
+            "schaumburg",
+        ):
             self.assertNotIn(word, self.words, f"{word!r} is a name, not a word")
 
     def test_real_inflections_are_accepted(self):
         # The coverage gap this list had: plural and -ized/-izing forms.
-        for word in ("absenteeisms", "abdicators", "aberrances", "absolutizing", "abracadabras"):
+        for word in (
+            "absenteeisms",
+            "abdicators",
+            "aberrances",
+            "absolutizing",
+            "abracadabras",
+        ):
             self.assertIn(word, self.words, f"{word!r} is a real word")
 
     def test_email_is_not_mistaken_for_a_proper_noun(self):
@@ -528,6 +593,7 @@ class TestWordListCleanup(unittest.TestCase):
         for word in ("apple", "orange", "piano", "house", "water"):
             self.assertIn(word, common)
         self.assertGreater(len(common), 5_000, "common pool shrank too far")
+
 
 if __name__ == "__main__":
     unittest.main()

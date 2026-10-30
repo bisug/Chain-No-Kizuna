@@ -2,6 +2,7 @@
 Configuration management for the Word Chain bot.
 Handles environment variables, game settings, and global constants.
 """
+
 import orjson
 import logging
 import os
@@ -12,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 # Load constants from environment variables
 load_dotenv()
+
 
 def get_list(key: str, default: str = "") -> list[int]:
     """
@@ -24,9 +26,10 @@ def get_list(key: str, default: str = "") -> list[int]:
         data = orjson.loads(val)
         if isinstance(data, list):
             return [int(i) for i in data]
-    except (orjson.JSONDecodeError, ValueError):
+    except orjson.JSONDecodeError, ValueError:
         pass
     return [int(i.strip()) for i in val.split(",") if i.strip().isdigit()]
+
 
 def get_str(key: str, default: str = "") -> str:
     """
@@ -121,6 +124,7 @@ WORD_POOL_FILES = {
 
 class GameState:
     """Possible states for a Game instance."""
+
     JOINING = 0
     RUNNING = 1
     KILLGAME = -1
@@ -128,6 +132,7 @@ class GameState:
 
 class GameSettings:
     """Static configuration for game mechanics and balance."""
+
     JOINING_PHASE_SECONDS = 60
     MAX_JOINING_PHASE_SECONDS = 180
     MIN_PLAYERS = 2

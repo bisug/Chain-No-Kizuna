@@ -5,7 +5,14 @@ from chainnokizuna.core.resources import vp_bot
 
 class Player:
     __slots__ = (
-        "_username", "_name", "user_id", "is_vp", "word_count", "letter_count", "longest_word", "score"
+        "_username",
+        "_name",
+        "user_id",
+        "is_vp",
+        "word_count",
+        "letter_count",
+        "longest_word",
+        "score",
     )
 
     def __init__(self, user: types.User) -> None:
@@ -14,9 +21,10 @@ class Player:
         self.user_id = user.id
 
         from chainnokizuna.core.resources import GlobalState
+
         self.is_vp = (
-            vp_bot is not None 
-            and GlobalState.vp_user is not None 
+            vp_bot is not None
+            and GlobalState.vp_user is not None
             and user.id == GlobalState.vp_user.id
         )
         self.word_count = 0
@@ -57,7 +65,9 @@ class Player:
     @property
     def name(self) -> str:
         if self._username:
-            return f"<a href='https://t.me/{self._username}'>{html.quote(self._name)}</a>"
+            return (
+                f"<a href='https://t.me/{self._username}'>{html.quote(self._name)}</a>"
+            )
         else:
             return f"<b>{html.quote(self._name)}</b>"
 

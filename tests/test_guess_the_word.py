@@ -6,6 +6,7 @@ save_game all ran unlocked, so a concurrent correct guess could end the game and
 delete its Redis key, after which the losing player's save_game would resurrect
 the finished game.
 """
+
 import ast
 import datetime
 import pathlib
@@ -36,7 +37,9 @@ class TestLockCoversWholeMethod(unittest.TestCase):
     def test_lock_is_the_only_top_level_block(self):
         fn = _handle_answer_ast()
         async_withs = [s for s in fn.body if isinstance(s, ast.AsyncWith)]
-        self.assertEqual(len(async_withs), 1, "handle_answer should hold exactly one lock")
+        self.assertEqual(
+            len(async_withs), 1, "handle_answer should hold exactly one lock"
+        )
         lock = async_withs[0]
         self.assertIsInstance(lock.items[0].context_expr, ast.Attribute)
         self.assertEqual(lock.items[0].context_expr.attr, "state_lock")
@@ -44,14 +47,21 @@ class TestLockCoversWholeMethod(unittest.TestCase):
     def test_lock_extends_to_the_last_statement(self):
         fn = _handle_answer_ast()
         lock = next(s for s in fn.body if isinstance(s, ast.AsyncWith))
-        trailing = [s for s in fn.body if not isinstance(s, ast.AsyncWith) and s.lineno > lock.end_lineno]
+        trailing = [
+            s
+            for s in fn.body
+            if not isinstance(s, ast.AsyncWith) and s.lineno > lock.end_lineno
+        ]
         self.assertEqual(trailing, [], "no state mutation may run outside state_lock")
 
     def test_save_game_call_is_inside_the_lock(self):
         fn = _handle_answer_ast()
         lock = next(s for s in fn.body if isinstance(s, ast.AsyncWith))
         inside = "\n".join(
-            line for line in SOURCE.read_text().splitlines()[lock.lineno - 1 : lock.end_lineno]
+            line
+            for line in SOURCE.read_text().splitlines()[
+                lock.lineno - 1 : lock.end_lineno
+            ]
         )
         self.assertIn("save_game", inside)
         self.assertIn("remove_game", inside)
@@ -64,7 +74,7 @@ class TestDictionaryReloadFailureIsLogged(unittest.TestCase):
         game = GuessTheWordGame(-1004242)
         game.state = 1
         game.target_word = "zebra"
-        game.dictionary = []          # as left by from_dict after a restart
+        game.dictionary = []  # as left by from_dict after a restart
         game.max_guesses = 30
         game.guess_count = 0
         game.guess_history = []
@@ -82,8 +92,10 @@ class TestDictionaryReloadFailureIsLogged(unittest.TestCase):
 
             # The guess is rejected once the dictionary stays empty, so the reply has
             # to be stubbed; the point of the test is the logged failure, not the reply.
-            with mock.patch("aiofiles.open", side_effect=OSError("missing data file")), \
-                 mock.patch.object(types.Message, "reply", new=mock.AsyncMock()):
+            with (
+                mock.patch("aiofiles.open", side_effect=OSError("missing data file")),
+                mock.patch.object(types.Message, "reply", new=mock.AsyncMock()),
+            ):
                 with self.assertLogs(gtw_mod.logger, level="ERROR") as captured:
                     await game.handle_answer(message)
                 return captured.output
@@ -131,8 +143,10 @@ class TestUpdateDbParticipantSchema(unittest.TestCase):
         async def scenario():
             # classic.py imports get_db at module level, guess_the_word.py
             # imports it inside update_db, so both targets need patching.
-            with mock.patch.object(classic_mod, "get_db", return_value=_DB()), \
-                 mock.patch.object(resources_mod, "get_db", return_value=_DB()):
+            with (
+                mock.patch.object(classic_mod, "get_db", return_value=_DB()),
+                mock.patch.object(resources_mod, "get_db", return_value=_DB()),
+            ):
                 await game.update_db()
 
         run(scenario())
@@ -142,10 +156,18 @@ class TestUpdateDbParticipantSchema(unittest.TestCase):
         classic = self._participants(ClassicGame)
         guess = self._participants(GuessTheWordGame)
         self.assertEqual(sorted(classic), sorted(guess))
-        self.assertEqual(sorted(guess), [
-            "full_name", "letter_count", "longest_word", "user_id", "username",
-            "won", "word_count",
-        ])
+        self.assertEqual(
+            sorted(guess),
+            [
+                "full_name",
+                "letter_count",
+                "longest_word",
+                "user_id",
+                "username",
+                "won",
+                "word_count",
+            ],
+        )
 
     def test_participant_document_contains_no_markup(self):
         """Storing rendered HTML invites injection if it is ever reused."""

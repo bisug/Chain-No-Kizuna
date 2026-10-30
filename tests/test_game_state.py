@@ -1,4 +1,5 @@
 """Regression tests for game state persistence and the nullable from_user fix."""
+
 import asyncio
 import datetime
 import pathlib
@@ -83,7 +84,9 @@ class TestSerializationRoundTrip(unittest.TestCase):
                     for slot in getattr(klass, "__slots__", ()):
                         if slot.startswith("__"):
                             continue
-                        with self.subTest(mode=mode.__name__, slot=f"{klass.__name__}.{slot}"):
+                        with self.subTest(
+                            mode=mode.__name__, slot=f"{klass.__name__}.{slot}"
+                        ):
                             # getattr, not hasattr: a default would also satisfy hasattr
                             getattr(back, slot)
 
@@ -216,8 +219,11 @@ class TestStaleTimerScanIsIdempotent(unittest.TestCase):
             with mock.patch.object(ClassicGame, "scan_for_stale_timer", new=fake_scan):
                 for i in range(10):
                     await self.game.join(
-                        make_message(text="/join", chat_id=self.GROUP_ID,
-                                     user=make_user(user_id=100 + i))
+                        make_message(
+                            text="/join",
+                            chat_id=self.GROUP_ID,
+                            user=make_user(user_id=100 + i),
+                        )
                     )
                 await asyncio.sleep(0.01)
             return len(started)
@@ -264,12 +270,11 @@ class TestAdminCacheIsBounded(unittest.TestCase):
 
         async def fake_get_chat_member(chat_id, user_id):
             self.api_calls.append(user_id)
-            return types.ChatMember(
-                member=make_user(user_id=user_id), status="creator"
-            )
+            return types.ChatMember(member=make_user(user_id=user_id), status="creator")
 
-        patcher = mock.patch.object(classic_mod, "bot", new=mock.Mock(
-            get_chat_member=fake_get_chat_member))
+        patcher = mock.patch.object(
+            classic_mod, "bot", new=mock.Mock(get_chat_member=fake_get_chat_member)
+        )
         patcher.start()
         self.addCleanup(patcher.stop)
 
@@ -307,7 +312,9 @@ class TestAdminCacheIsBounded(unittest.TestCase):
             entry_at = self.game._admin_cache[42][0]
             before = len(self.api_calls)
             with mock.patch.object(
-                self.mod.time, "time", return_value=entry_at + self.mod._ADMIN_CACHE_TTL + 1
+                self.mod.time,
+                "time",
+                return_value=entry_at + self.mod._ADMIN_CACHE_TTL + 1,
             ):
                 await self.game.is_admin(42)
             return len(self.api_calls) - before
@@ -347,8 +354,11 @@ class TestSaveGameDoesNotReAddSetMembership(unittest.TestCase):
         import inspect
 
         source = inspect.getsource(ClassicGame.join)
-        self.assertIn("register_active_game", source,
-                      "join() must register the group in the active-games set")
+        self.assertIn(
+            "register_active_game",
+            source,
+            "join() must register the group in the active-games set",
+        )
 
 
 class TestWordlistRejectionLookupIsTargeted(unittest.TestCase):
@@ -358,7 +368,7 @@ class TestWordlistRejectionLookupIsTargeted(unittest.TestCase):
         import chainnokizuna.handlers.wordlist as wordlist_mod
 
         self.mod = wordlist_mod
-        self.queries = []      # find() filter documents
+        self.queries = []  # find() filter documents
         self.fetch_lengths = []  # to_list(length=...) values
 
     class _Cursor:
@@ -382,24 +392,41 @@ class TestWordlistRejectionLookupIsTargeted(unittest.TestCase):
             # Honour the $in filter the way Mongo would.
             word_clause = query.get("word", {})
             wanted = set(word_clause.get("$in", [])) if "$in" in word_clause else None
-            rows = self._rows if wanted is None else [r for r in self._rows if r["word"] in wanted]
-            return TestWordlistRejectionLookupIsTargeted._Cursor(rows, self._sink, self._lengths)
+            rows = (
+                self._rows
+                if wanted is None
+                else [r for r in self._rows if r["word"] in wanted]
+            )
+            return TestWordlistRejectionLookupIsTargeted._Cursor(
+                rows, self._sink, self._lengths
+            )
 
     def _db(self, rows):
-        return type("_DB", (), {"wordlist": self._Collection(rows, self.queries, self.fetch_lengths)})()
+        return type(
+            "_DB",
+            (),
+            {"wordlist": self._Collection(rows, self.queries, self.fetch_lengths)},
+        )()
 
     def test_query_is_limited_to_the_requested_words(self):
-        rows = [{"word": "apple", "accepted": False, "reason": None},
-                {"word": "pear", "accepted": False, "reason": "not a word"}]
+        rows = [
+            {"word": "apple", "accepted": False, "reason": None},
+            {"word": "pear", "accepted": False, "reason": "not a word"},
+        ]
         with mock.patch.object(self.mod, "check_word_existence", return_value=False):
             words = ["apple", "pear", "zebra"]
-            existing, rejected, with_reason = run(self.mod._collect_rejections(self._db(rows), words))
+            existing, rejected, with_reason = run(
+                self.mod._collect_rejections(self._db(rows), words)
+            )
 
         self.assertEqual(len(self.queries), 1, "exactly one query")
         query = self.queries[0]
         self.assertEqual(query["accepted"], False)
-        self.assertEqual(set(query["word"]["$in"]), {"apple", "pear", "zebra"},
-                         "must ask only about the requested words, not the whole collection")
+        self.assertEqual(
+            set(query["word"]["$in"]),
+            {"apple", "pear", "zebra"},
+            "must ask only about the requested words, not the whole collection",
+        )
         self.assertEqual(existing, [])
         self.assertEqual(rejected, ["<i>Apple</i>"])
         self.assertEqual(with_reason, [("<i>Pear</i>", "not a word")])
@@ -420,7 +447,9 @@ class TestWordlistRejectionLookupIsTargeted(unittest.TestCase):
         with mock.patch.object(self.mod, "check_word_existence", return_value=False):
             run(self.mod._collect_rejections(self._db(rows), ["apple", "pear"]))
         # to_list length must bound the fetch to the requested words
-        self.assertEqual(self.fetch_lengths, [2], "fetch length bounded by request size")
+        self.assertEqual(
+            self.fetch_lengths, [2], "fetch length bounded by request size"
+        )
 
 
 class TestHtmlEscapingOfDynamicText(unittest.TestCase):
@@ -431,8 +460,18 @@ class TestHtmlEscapingOfDynamicText(unittest.TestCase):
     message entirely.
     """
 
-    SUPPORTED_TAGS = {"b", "i", "u", "s", "a", "code", "pre",
-                      "tg-spoiler", "tg-emoji", "blockquote"}
+    SUPPORTED_TAGS = {
+        "b",
+        "i",
+        "u",
+        "s",
+        "a",
+        "code",
+        "pre",
+        "tg-spoiler",
+        "tg-emoji",
+        "blockquote",
+    }
 
     @classmethod
     def _would_telegram_reject(cls, text):
@@ -468,16 +507,25 @@ class TestHtmlEscapingOfDynamicText(unittest.TestCase):
             game.guess_history = ["🟩 🟨 <b>APPLE</b>"]
             game.start_time = datetime.datetime.now(datetime.timezone.utc)
             game.state = 1
-            with mock.patch.object(gtw, "bot", new=Bot(token="1:T")), \
-                 mock.patch.object(GuessTheWordGame, "send_message",
-                                   new=mock.AsyncMock(side_effect=lambda *a, **k: captured.append(a[0]))):
+            with (
+                mock.patch.object(gtw, "bot", new=Bot(token="1:T")),
+                mock.patch.object(
+                    GuessTheWordGame,
+                    "send_message",
+                    new=mock.AsyncMock(
+                        side_effect=lambda *a, **k: captured.append(a[0])
+                    ),
+                ),
+            ):
                 await game.handle_game_end()
 
         run(scenario())
         self.assertTrue(captured, "summary message should have been sent")
         text = captured[0]
-        self.assertIsNone(self._would_telegram_reject(text),
-                          f"summary would be rejected: {self._would_telegram_reject(text)}")
+        self.assertIsNone(
+            self._would_telegram_reject(text),
+            f"summary would be rejected: {self._would_telegram_reject(text)}",
+        )
 
     def test_real_shipped_data_no_longer_breaks_the_summary(self):
         """'mayor' has a bare '&c.' in its meaning and is in the target pool."""
@@ -489,7 +537,9 @@ class TestHtmlEscapingOfDynamicText(unittest.TestCase):
             self.skipTest("word data file not present")
         data = json.loads(data_file.read_text())
         meaning = data.get("mayor", {}).get("meaning", "")
-        self.assertIn("&", meaning, "fixture assumption: mayor's meaning contains a bare &")
+        self.assertIn(
+            "&", meaning, "fixture assumption: mayor's meaning contains a bare &"
+        )
         rendered = f"<b>Meaning:</b> <i>{html.quote(meaning)}</i>"
         self.assertIsNone(self._would_telegram_reject(rendered))
 
@@ -501,16 +551,20 @@ class TestHtmlEscapingOfDynamicText(unittest.TestCase):
         # interpolate the stored reason unescaped, because it is re-rendered
         # to every later requester.
         unescaped = "Reason: {reason}."
-        self.assertNotIn(unescaped, source,
-                         "stored reason must be escaped before reaching HTML")
+        self.assertNotIn(
+            unescaped, source, "stored reason must be escaped before reaching HTML"
+        )
         self.assertIn("Reason: {html.quote(reason)}", source)
 
     def test_exception_text_is_escaped_before_reaching_html(self):
         import chainnokizuna.handlers.gameplay as gameplay_mod
 
         source = pathlib.Path(gameplay_mod.__file__).read_text()
-        self.assertNotIn("f\"<code>{e.__class__.__name__}: {e}</code>\"", source,
-                         "int() echoes its argument, so this carried owner input into HTML")
+        self.assertNotIn(
+            'f"<code>{e.__class__.__name__}: {e}</code>"',
+            source,
+            "int() echoes its argument, so this carried owner input into HTML",
+        )
 
     def test_guess_validation_rejects_non_ascii_letters(self):
         """str.isalpha() accepts any Unicode letter; is_word() does not."""

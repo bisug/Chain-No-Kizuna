@@ -43,7 +43,7 @@ class BannedLettersGame(ClassicGame):
                 f"Players remaining: {len(self.players_in_game)}/{len(self.players)}\n"
                 f"Total words: {self.turns}"
             ),
-            parse_mode=ParseMode.HTML
+            parse_mode=ParseMode.HTML,
         )
 
         self.reset_turn()
@@ -57,10 +57,12 @@ class BannedLettersGame(ClassicGame):
             prefix=self.current_word[-1],
             banned_letters=self.banned_letters,
             exclude_words=self.used_words,
-            pool=self.word_pool
+            pool=self.word_pool,
         )
 
-    async def additional_answer_checkers(self, word: str, message: types.Message) -> bool:
+    async def additional_answer_checkers(
+        self, word: str, message: types.Message
+    ) -> bool:
         used_banned_letters = sorted(set(word) & set(self.banned_letters))
         if used_banned_letters:
             await message.reply(
@@ -101,8 +103,7 @@ class BannedLettersGame(ClassicGame):
             (
                 f"The first word is <i>{self.current_word.capitalize()}</i>.\n"
                 f"Banned letters: <i>{', '.join(c.upper() for c in self.banned_letters)}</i>\n\n"
-                "Turn order:\n"
-                + "\n".join(p.mention for p in self.players_in_game)
+                "Turn order:\n" + "\n".join(p.mention for p in self.players_in_game)
             ),
-            parse_mode=ParseMode.HTML
+            parse_mode=ParseMode.HTML,
         )

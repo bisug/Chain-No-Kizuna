@@ -14,6 +14,7 @@ class EliminationGame(ClassicGame):
     Game mode where players are eliminated based on their score at the end of each round.
     Scores are based on word lengths.
     """
+
     name = "elimination game"
     command = "startelim"
 
@@ -34,15 +35,19 @@ class EliminationGame(ClassicGame):
         # Elimination game attributes
         self.round = 1
         self.turns_until_elimination = 0
-        self.exceeded_score_limit = False  # Remind players that there is a turn score increment ceiling
+        self.exceeded_score_limit = (
+            False  # Remind players that there is a turn score increment ceiling
+        )
 
     def to_dict(self) -> dict:
         data = super().to_dict()
-        data.update({
-            "round": self.round,
-            "turns_until_elimination": self.turns_until_elimination,
-            "exceeded_score_limit": self.exceeded_score_limit,
-        })
+        data.update(
+            {
+                "round": self.round,
+                "turns_until_elimination": self.turns_until_elimination,
+                "exceeded_score_limit": self.exceeded_score_limit,
+            }
+        )
         return data
 
     @classmethod
@@ -53,7 +58,6 @@ class EliminationGame(ClassicGame):
         game.exceeded_score_limit = data.get("exceeded_score_limit", False)
         return game
 
-    
     @property
     def min_word_length_enforced(self) -> bool:
         return False
@@ -69,7 +73,7 @@ class EliminationGame(ClassicGame):
         players = self.players_in_game[:]
         # Sort by letter count descending then user id ascending
         players.sort(key=lambda k: (-k.score, k.user_id))
-        
+
         # Generate all formatted lines first
         lines = []
         show_idx = -1
@@ -96,19 +100,26 @@ class EliminationGame(ClassicGame):
                 f"Turn: {self.players_in_game[0].mention}"
                 # Do not show next player on queue if this is last turn of the round
                 # Since they could be eliminated
-                + (f" (Next: {self.players_in_game[1].name})\n" if self.turns_until_elimination > 1 else "\n")
+                + (
+                    f" (Next: {self.players_in_game[1].name})\n"
+                    if self.turns_until_elimination > 1
+                    else "\n"
+                )
                 + f"Your word must start with <i>{self.current_word[-1].upper()}</i>.\n"
-                  f"You have <b>{self.time_limit}s</b> to answer.\n\n"
-                  "Leaderboard:\n" + self.get_leaderboard(show_player=self.players_in_game[0])
+                f"You have <b>{self.time_limit}s</b> to answer.\n\n"
+                "Leaderboard:\n"
+                + self.get_leaderboard(show_player=self.players_in_game[0])
             ),
-            parse_mode=ParseMode.HTML
+            parse_mode=ParseMode.HTML,
         )
 
         self.reset_turn()
 
     def post_turn_processing(self, word: str) -> None:
         super().post_turn_processing(word)
-        self.players_in_game[0].score += min(len(word), GameSettings.ELIM_MAX_TURN_SCORE)
+        self.players_in_game[0].score += min(
+            len(word), GameSettings.ELIM_MAX_TURN_SCORE
+        )
         if len(word) > GameSettings.ELIM_MAX_TURN_SCORE:
             self.exceeded_score_limit = True
 
@@ -121,19 +132,16 @@ class EliminationGame(ClassicGame):
         # No limit reduction
 
     async def running_initialization(self) -> None:
-        self.current_word = self.require_starting_word(
-            await self.pick_starting_word()
-        )
+        self.current_word = self.require_starting_word(await self.pick_starting_word())
         self.used_words.add(self.current_word)
         self.start_time = datetime.now(timezone.utc).replace(microsecond=0)
 
         await self.send_message(
             (
                 f"The first word is <i>{self.current_word.capitalize()}</i>.\n\n"
-                "Turn order:\n"
-                + "\n".join(p.mention for p in self.players_in_game)
+                "Turn order:\n" + "\n".join(p.mention for p in self.players_in_game)
             ),
-            parse_mode=ParseMode.HTML
+            parse_mode=ParseMode.HTML,
         )
 
         await self.handle_round_start()
@@ -146,7 +154,7 @@ class EliminationGame(ClassicGame):
             self.accepting_answers = False
             await self.send_message(
                 f"{self.players_in_game[0].mention} ran out of time!",
-                parse_mode=ParseMode.HTML
+                parse_mode=ParseMode.HTML,
             )
 
         # Regardless of answering in time or running out of time
@@ -171,8 +179,9 @@ class EliminationGame(ClassicGame):
         self.turns_until_elimination = len(self.players_in_game)
 
         await self.send_message(
-            f"Round {self.round} is starting...\n\nLeaderboard:\n" + self.get_leaderboard(),
-            parse_mode=ParseMode.HTML
+            f"Round {self.round} is starting...\n\nLeaderboard:\n"
+            + self.get_leaderboard(),
+            parse_mode=ParseMode.HTML,
         )
 
     async def handle_round_end(self) -> None:
@@ -191,7 +200,7 @@ class EliminationGame(ClassicGame):
                 + ("is" if len(eliminated) == 1 else "are")
                 + f" eliminated for having the lowest score of {min_score}."
             ),
-            parse_mode=ParseMode.HTML
+            parse_mode=ParseMode.HTML,
         )
 
         self.players_in_game = [p for p in self.players_in_game if p not in eliminated]

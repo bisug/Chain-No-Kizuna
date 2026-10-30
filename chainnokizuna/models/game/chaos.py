@@ -20,7 +20,7 @@ class ChaosGame(ClassicGame):
                 f"Players remaining: {len(self.players_in_game)}/{len(self.players)}\n"
                 f"Total words: {self.turns}"
             ),
-            parse_mode=ParseMode.HTML
+            parse_mode=ParseMode.HTML,
         )
 
         self.reset_turn()
@@ -36,7 +36,10 @@ class ChaosGame(ClassicGame):
         self.start_time = datetime.now(timezone.utc).replace(microsecond=0)
 
         # No turn order
-        await self.send_message(f"The first word is <i>{self.current_word.capitalize()}</i>.", parse_mode=ParseMode.HTML)
+        await self.send_message(
+            f"The first word is <i>{self.current_word.capitalize()}</i>.",
+            parse_mode=ParseMode.HTML,
+        )
 
     async def running_phase_tick(self) -> bool:
         if self.answered:
@@ -44,7 +47,9 @@ class ChaosGame(ClassicGame):
             self.players_in_game.append(self.players_in_game.pop(0))
 
             # Choose random player excluding the one who just answered
-            player = self.players_in_game.pop(random.randint(0, len(self.players_in_game) - 2))
+            player = self.players_in_game.pop(
+                random.randint(0, len(self.players_in_game) - 2)
+            )
         else:
             self.time_left -= 1
             if self.time_left > 0:
@@ -54,7 +59,7 @@ class ChaosGame(ClassicGame):
             self.accepting_answers = False
             await self.send_message(
                 f"{self.players_in_game[0].mention} ran out of time! They have been eliminated.",
-                parse_mode=ParseMode.HTML
+                parse_mode=ParseMode.HTML,
             )
             del self.players_in_game[0]
 
@@ -63,7 +68,9 @@ class ChaosGame(ClassicGame):
                 return True
 
             # Choose random player
-            player = self.players_in_game.pop(random.randint(0, len(self.players_in_game) - 1))
+            player = self.players_in_game.pop(
+                random.randint(0, len(self.players_in_game) - 1)
+            )
 
         # Move player to start of queue
         self.players_in_game.insert(0, player)

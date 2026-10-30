@@ -27,7 +27,9 @@ async def cmd_stats(message: types.Message) -> None:
     rmsg = message.reply_to_message
     origin = rmsg.forward_origin if rmsg else None
     # Bot API 7.0 replaced forward_from with forward_origin; only user origins expose a sender.
-    original_sender = origin.sender_user if isinstance(origin, types.MessageOriginUser) else None
+    original_sender = (
+        origin.sender_user if isinstance(origin, types.MessageOriginUser) else None
+    )
     user = original_sender or (rmsg.from_user if rmsg else None) or message.from_user
 
     name = user.full_name
@@ -37,10 +39,7 @@ async def cmd_stats(message: types.Message) -> None:
     res = await db.players.find_one({"_id": user.id})
 
     if not res:
-        await message.reply(
-            f"No statistics for {mention}!",
-            parse_mode=ParseMode.HTML
-        )
+        await message.reply(f"No statistics for {mention}!", parse_mode=ParseMode.HTML)
         return
 
     # .get() for both: a document with game_count but no win_count would
@@ -72,31 +71,39 @@ async def cmd_groupstats(message: types.Message) -> None:
     # every participant id just to $size them. Those sets grow without bound
     # with the group's history, so a busy group could allocate tens of MB per
     # request to produce four integers.
-    game_cursor = db.games.aggregate([
-        {"$match": {"group_id": message.chat.id}},
-        {"$count": "game_cnt"},
-    ])
+    game_cursor = db.games.aggregate(
+        [
+            {"$match": {"group_id": message.chat.id}},
+            {"$count": "game_cnt"},
+        ]
+    )
     game_list = await game_cursor.to_list(length=1)
 
     if not game_list:
         await message.reply("No games have been played in this group yet.")
         return
 
-    player_cursor = db.games.aggregate([
-        {"$match": {"group_id": message.chat.id}},
-        {"$unwind": "$participants"},
-        {"$group": {
-            "_id": None,
-            "player_cnt": {"$addToSet": "$participants.user_id"},
-            "word_cnt": {"$sum": "$participants.word_count"},
-            "letter_cnt": {"$sum": "$participants.letter_count"},
-        }},
-        {"$project": {
-            "player_cnt": {"$size": "$player_cnt"},
-            "word_cnt": 1,
-            "letter_cnt": 1,
-        }},
-    ])
+    player_cursor = db.games.aggregate(
+        [
+            {"$match": {"group_id": message.chat.id}},
+            {"$unwind": "$participants"},
+            {
+                "$group": {
+                    "_id": None,
+                    "player_cnt": {"$addToSet": "$participants.user_id"},
+                    "word_cnt": {"$sum": "$participants.word_count"},
+                    "letter_cnt": {"$sum": "$participants.letter_count"},
+                }
+            },
+            {
+                "$project": {
+                    "player_cnt": {"$size": "$player_cnt"},
+                    "word_cnt": 1,
+                    "letter_cnt": 1,
+                }
+            },
+        ]
+    )
     player_list = await player_cursor.to_list(length=1)
     res = player_list[0] if player_list else {}
     game_cnt = game_list[0]["game_cnt"]
@@ -109,17 +116,18 @@ async def cmd_groupstats(message: types.Message) -> None:
             f"<b>{res.get('word_cnt', 0)}</b> total words played\n"
             f"<b>{res.get('letter_cnt', 0)}</b> total letters played"
         ),
-        parse_mode=ParseMode.HTML
+        parse_mode=ParseMode.HTML,
     )
 
 
 _global_stats_cache: Optional[Tuple[float, str]] = None  # (timestamp, content)
 _GLOBAL_STATS_TTL = 30  # seconds
 
+
 async def get_global_stats() -> str:
     global _global_stats_cache
     now = time.time()
-    
+
     if _global_stats_cache and (now - _global_stats_cache[0]) < _GLOBAL_STATS_TTL:
         return _global_stats_cache[1]
 
@@ -129,14 +137,16 @@ async def get_global_stats() -> str:
     group_cnt = len(await db.games.distinct("group_id"))
     game_cnt = await db.games.count_documents({})
     player_cnt = await db.players.count_documents({})
-    
+
     # Sum words and letters from players collection
     pipeline = [
-        {"$group": {
-            "_id": None,
-            "word_cnt": {"$sum": "$word_count"},
-            "letter_cnt": {"$sum": "$letter_count"}
-        }}
+        {
+            "$group": {
+                "_id": None,
+                "word_cnt": {"$sum": "$word_count"},
+                "letter_cnt": {"$sum": "$letter_count"},
+            }
+        }
     ]
     agg_res = await db.players.aggregate(pipeline).to_list(length=1)
     word_cnt = agg_res[0]["word_cnt"] if agg_res else 0
@@ -150,7 +160,7 @@ async def get_global_stats() -> str:
         f"<b>{word_cnt}</b> total words played\n"
         f"<b>{letter_cnt}</b> total letters played"
     )
-    
+
     _global_stats_cache = (now, result)
     return result
 
@@ -170,9 +180,11 @@ async def cmd_topseekers(message: types.Message) -> None:
 async def topseekers_callback(callback: types.CallbackQuery) -> None:
     page = int(callback.data.split(":")[-1])
     text, kb = await get_leaderboard_page(page)
-    
+
     try:
-        await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.HTML)
+        await callback.message.edit_text(
+            text, reply_markup=kb, parse_mode=ParseMode.HTML
+        )
     except Exception:
         pass
     await callback.answer()
@@ -200,15 +212,28 @@ async def get_leaderboard_page(page: int) -> Tuple[str, types.InlineKeyboardMark
     page = max(1, min(page, max_pages, _MAX_LEADERBOARD_PAGE))
     skip = (page - 1) * limit
 
-    cursor = db.players.find({"guess_word_wins": {"$gt": 0}}).sort("guess_word_wins", -1).skip(skip).limit(limit)
+    cursor = (
+        db.players.find({"guess_word_wins": {"$gt": 0}})
+        .sort("guess_word_wins", -1)
+        .skip(skip)
+        .limit(limit)
+    )
     players = await cursor.to_list(length=limit)
-    
+
     text = "🏆 <b>Elite Guess the Word Leaderboard</b>\n\n"
     if not players:
         text += "No seekers found yet. Be the first to win! /new"
     else:
         for i, p in enumerate(players, start=skip + 1):
-            medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"<b>{i}.</b>"
+            medal = (
+                "🥇"
+                if i == 1
+                else "🥈"
+                if i == 2
+                else "🥉"
+                if i == 3
+                else f"<b>{i}.</b>"
+            )
             # Get user info if available, else use fallback
             # Try to get persisted name, fallback to User ID
             name = p.get("full_name") or f"User <code>{p['_id']}</code>"
@@ -217,12 +242,24 @@ async def get_leaderboard_page(page: int) -> Tuple[str, types.InlineKeyboardMark
     # Navigation buttons
     buttons = []
     if page > 1:
-        buttons.append(types.InlineKeyboardButton(text="⬅️ Back", callback_data=f"topseekers:page:{page-1}"))
-    
-    buttons.append(types.InlineKeyboardButton(text=f"Page {page}/{max_pages}", callback_data="noop"))
-    
+        buttons.append(
+            types.InlineKeyboardButton(
+                text="⬅️ Back", callback_data=f"topseekers:page:{page - 1}"
+            )
+        )
+
+    buttons.append(
+        types.InlineKeyboardButton(
+            text=f"Page {page}/{max_pages}", callback_data="noop"
+        )
+    )
+
     if page < max_pages:
-        buttons.append(types.InlineKeyboardButton(text="Next ➡️", callback_data=f"topseekers:page:{page+1}"))
-    
+        buttons.append(
+            types.InlineKeyboardButton(
+                text="Next ➡️", callback_data=f"topseekers:page:{page + 1}"
+            )
+        )
+
     kb = types.InlineKeyboardMarkup(inline_keyboard=[buttons])
     return text, kb

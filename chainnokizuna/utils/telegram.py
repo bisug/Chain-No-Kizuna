@@ -8,6 +8,7 @@ from chainnokizuna.core.resources import bot
 
 T = TypeVar("T")
 
+
 async def send_admin_group(*args: Any, **kwargs: Any) -> Optional[types.Message]:
     try:
         if not ADMIN_GROUP_ID:

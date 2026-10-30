@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Optional, Any
 
 from pymongo import AsyncMongoClient
+
 # PyMongo 4.18 moved the async types out of the top-level namespace.
 from pymongo.asynchronous.database import AsyncDatabase
 import redis.asyncio as redis
@@ -26,6 +27,7 @@ class GlobalState:
     """
     Holds globally accessible runtime states and bot user identities.
     """
+
     build_time = datetime.now(timezone.utc).replace(microsecond=0)
     maint_mode = False
 
@@ -42,16 +44,20 @@ bot = Bot(
         parse_mode=ParseMode.HTML,
         allow_sending_without_reply=True,
         link_preview_is_disabled=True,
-    )
+    ),
 )
-vp_bot: Optional[Bot] = Bot(
-    token=VP_TOKEN,
-    default=DefaultBotProperties(
-        parse_mode=ParseMode.HTML,
-        allow_sending_without_reply=True,
-        link_preview_is_disabled=True,
+vp_bot: Optional[Bot] = (
+    Bot(
+        token=VP_TOKEN,
+        default=DefaultBotProperties(
+            parse_mode=ParseMode.HTML,
+            allow_sending_without_reply=True,
+            link_preview_is_disabled=True,
+        ),
     )
-) if VP_TOKEN else None
+    if VP_TOKEN
+    else None
+)
 
 
 mongo_client: Optional[AsyncMongoClient] = None
@@ -86,7 +92,7 @@ async def init_resources() -> None:
     if vp_bot:
         GlobalState.vp_user = await vp_bot.get_me()
         logger.info(f"Virtual player initialized: @{GlobalState.vp_user.username}")
-    
+
     logger.info(f"Bot initialized: @{GlobalState.bot_user.username}")
 
     logger.info("Connecting to MongoDB...")
@@ -102,9 +108,9 @@ async def init_resources() -> None:
             maxIdleTimeMS=60_000,
             waitQueueTimeoutMS=10_000,
             retryWrites=True,
-            serverSelectionTimeoutMS=5000
+            serverSelectionTimeoutMS=5000,
         )
-        await mongo_client.admin.command('ping')
+        await mongo_client.admin.command("ping")
         await ensure_indexes()
         logger.info("MongoDB connected and indexed.")
     except Exception as e:
@@ -135,27 +141,29 @@ async def init_resources() -> None:
             logger.error(f"Failed to connect to Redis: {e}")
             vk = None
 
+
 async def ensure_indexes() -> None:
     """Ensure MongoDB indexes exist on startup."""
     db = get_db()
-    
+
     logger.info("Initializing MongoDB indexes...")
-    
+
     await db.games.create_index([("group_id", 1)])
     await db.games.create_index([("start_time", -1)])
     await db.games.create_index([("participants.user_id", 1)])
     await db.games.create_index([("game_mode", 1)])
-    
+
     await db.players.create_index([("word_count", -1)])
     await db.players.create_index([("letter_count", -1)])
     # The leaderboard filters and sorts on guess_word_wins on every page
     # request; without this it is a collection scan plus an in-memory sort.
     await db.players.create_index([("guess_word_wins", -1)])
-    
+
     await db.wordlist.create_index([("word", 1)], unique=True)
     await db.wordlist.create_index([("accepted", 1)])
-    
+
     logger.info("MongoDB indexes verified.")
+
 
 async def close_resources() -> None:
     """Gracefully closes all open database and network connections."""

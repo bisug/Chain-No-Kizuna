@@ -19,7 +19,7 @@ GAME_MODES = [
     RequiredLetterGame,
     EliminationGame,
     MixedEliminationGame,
-    GuessTheWordGame
+    GuessTheWordGame,
 ]
 
 __all__ = (
@@ -33,5 +33,5 @@ __all__ = (
     "EliminationGame",
     "MixedEliminationGame",
     "GuessTheWordGame",
-    "GAME_MODES"
+    "GAME_MODES",
 )

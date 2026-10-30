@@ -2,6 +2,7 @@
 Main entry point for the Word Chain bot.
 Handles initialization, leader election (multiple instance support), and polling.
 """
+
 import asyncio
 import logging
 import random
@@ -12,7 +13,13 @@ from aiogram.exceptions import TelegramConflictError
 
 from chainnokizuna import dp
 from chainnokizuna.services.leader import LeaderElection
-from chainnokizuna.core.resources import init_resources, close_resources, bot, vp_bot, GlobalState
+from chainnokizuna.core.resources import (
+    init_resources,
+    close_resources,
+    bot,
+    vp_bot,
+    GlobalState,
+)
 from chainnokizuna.db.redis import load_all_games
 from config import GameState
 
@@ -49,12 +56,19 @@ async def main() -> None:
     try:
         while True:
             if await leader_election.acquire():
-                logger.info(f"Instance {instance_id} is now LEADER. Starting polling...")
+                logger.info(
+                    f"Instance {instance_id} is now LEADER. Starting polling..."
+                )
                 game_tasks = []
-                
+
                 try:
-                    await asyncio.gather(*(b.delete_webhook(drop_pending_updates=True) for b in active_bots))
-                    
+                    await asyncio.gather(
+                        *(
+                            b.delete_webhook(drop_pending_updates=True)
+                            for b in active_bots
+                        )
+                    )
+
                     # --- State restoration ---
                     try:
                         restored_games = await load_all_games()
@@ -62,10 +76,14 @@ async def main() -> None:
                         for game in restored_games:
                             if game.state == GameState.RUNNING:
                                 GlobalState.games[game.group_id] = game
-                                game_tasks.append(asyncio.create_task(game.resume_loop()))
-                        
+                                game_tasks.append(
+                                    asyncio.create_task(game.resume_loop())
+                                )
+
                         if restored_games:
-                            logger.info(f"Restored {len(restored_games)} active game(s).")
+                            logger.info(
+                                f"Restored {len(restored_games)} active game(s)."
+                            )
                     except Exception as e:
                         logger.error(f"State restoration failed: {e}")
 
@@ -74,9 +92,11 @@ async def main() -> None:
                     await dp.start_polling(*active_bots)
                     logger.info("Polling finished. Exiting...")
                     break
-                    
+
                 except TelegramConflictError:
-                    logger.warning("Conflict: terminated by another instance. Retrying...")
+                    logger.warning(
+                        "Conflict: terminated by another instance. Retrying..."
+                    )
                 except Exception as e:
                     logger.error(f"Polling crashed: {e}")
                 finally:
@@ -85,14 +105,14 @@ async def main() -> None:
                         task.cancel()
                     if game_tasks:
                         await asyncio.gather(*game_tasks, return_exceptions=True)
-                    
+
                     GlobalState.games.clear()
                     await leader_election.release()
             else:
                 logger.debug(f"Standby - {instance_id}")
                 await asyncio.sleep(5)
-                
-    except (KeyboardInterrupt, SystemExit):
+
+    except KeyboardInterrupt, SystemExit:
         logger.info("Bot interrupted.")
     finally:
         await leader_election.release()
@@ -102,5 +122,5 @@ async def main() -> None:
 if __name__ == "__main__":
     try:
         asyncio.run(main())
-    except (KeyboardInterrupt, SystemExit):
+    except KeyboardInterrupt, SystemExit:
         pass

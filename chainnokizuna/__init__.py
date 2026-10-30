@@ -2,20 +2,25 @@
 Core initialization for the Chain No Kizuna bot.
 Sets up logging, configures the dispatcher with handlers, and defines bot-level lifecycle events.
 """
+
 import logging
 import asyncio
 
 from aiogram import Dispatcher
 
-from chainnokizuna.core.resources import init_resources, close_resources, GlobalState, bot
+from chainnokizuna.core.resources import (
+    init_resources,
+    close_resources,
+    GlobalState,
+    bot,
+)
 from chainnokizuna.utils.telegram import send_admin_group
 from chainnokizuna.services.words import Words
 from chainnokizuna.utils.commands import set_bot_commands
 from config import LOG_LEVEL
 
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=LOG_LEVEL
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=LOG_LEVEL
 )
 
 logger = logging.getLogger(__name__)
@@ -59,8 +64,10 @@ async def startup():
         logger.error(f"Initial word dictionary update failed: {e}")
         # Non-fatal: start_game() refuses the dictionary-backed modes while
         # Words.count is 0 rather than crashing the handler.
-        await send_admin_group("⚠️ Started with an empty word list; word-chain "
-                               "modes are disabled until the next refresh.")
+        await send_admin_group(
+            "⚠️ Started with an empty word list; word-chain "
+            "modes are disabled until the next refresh."
+        )
 
     # Held so shutdown can cancel it; an unreferenced task can be collected.
     _background_task = asyncio.create_task(background_task_loop())
