@@ -39,9 +39,12 @@ class TestErrorHandlerWithoutAdminGroup(unittest.TestCase):
         game.state = 1
         GlobalState.games[self.GROUP_ID] = game
 
-        with mock.patch.object(
-            errors, "send_admin_group", new=mock.AsyncMock(return_value=None)
-        ), self.assertRaises(RuntimeError) as ctx:
+        with (
+            mock.patch.object(
+                errors, "send_admin_group", new=mock.AsyncMock(return_value=None)
+            ),
+            self.assertRaises(RuntimeError) as ctx,
+        ):
             run(errors.error_handler(self._event()))
 
         self.assertEqual(str(ctx.exception), "original failure")
@@ -53,23 +56,32 @@ class TestErrorHandlerWithoutAdminGroup(unittest.TestCase):
         game.state = 1
         GlobalState.games[self.GROUP_ID] = game
 
-        with mock.patch.object(
-            errors, "send_admin_group", new=mock.AsyncMock(return_value=None)
-        ), self.assertRaises(RuntimeError):
+        with (
+            mock.patch.object(
+                errors, "send_admin_group", new=mock.AsyncMock(return_value=None)
+            ),
+            self.assertRaises(RuntimeError),
+        ):
             run(errors.error_handler(self._event()))
         self.assertEqual(game.state, -1)
 
     def test_original_error_is_never_masked(self):
-        with mock.patch.object(
-            errors, "send_admin_group", new=mock.AsyncMock(return_value=None)
-        ), self.assertRaises(RuntimeError) as ctx:
+        with (
+            mock.patch.object(
+                errors, "send_admin_group", new=mock.AsyncMock(return_value=None)
+            ),
+            self.assertRaises(RuntimeError) as ctx,
+        ):
             run(errors.error_handler(self._event()))
         self.assertNotIsInstance(ctx.exception, AttributeError)
 
     def test_handles_error_when_no_game_is_running(self):
-        with mock.patch.object(
-            errors, "send_admin_group", new=mock.AsyncMock(return_value=None)
-        ), self.assertRaises(RuntimeError):
+        with (
+            mock.patch.object(
+                errors, "send_admin_group", new=mock.AsyncMock(return_value=None)
+            ),
+            self.assertRaises(RuntimeError),
+        ):
             run(errors.error_handler(self._event()))
 
     def test_uses_admin_message_when_available(self):
@@ -79,9 +91,12 @@ class TestErrorHandlerWithoutAdminGroup(unittest.TestCase):
         admin_msg = mock.MagicMock()
         admin_msg.reply = mock.AsyncMock()
 
-        with mock.patch.object(
-            errors, "send_admin_group", new=mock.AsyncMock(return_value=admin_msg)
-        ), self.assertRaises(RuntimeError):
+        with (
+            mock.patch.object(
+                errors, "send_admin_group", new=mock.AsyncMock(return_value=admin_msg)
+            ),
+            self.assertRaises(RuntimeError),
+        ):
             run(errors.error_handler(self._event()))
 
         self.assertEqual(game.state, -1)
