@@ -27,7 +27,7 @@ jobs:
     # redis-server (the step failed with "redis-server: command not found").
     services:
       redis:
-        image: redis:8-alpine
+        image: redis:8.12.0-alpine
         ports:
           - 6379:6379
         options: >-
@@ -37,10 +37,10 @@ jobs:
           --health-retries 5
 
     steps:
-    - uses: actions/checkout@v7
+    - uses: actions/checkout@v7.0.1
 
     - name: Set up Python
-      uses: actions/setup-python@v7
+      uses: actions/setup-python@v7.1.0
       with:
         # Matches the pinned 3.14.10 runtime in .python-version.
         python-version: "3.14"
@@ -48,7 +48,7 @@ jobs:
     - name: Install uv
       # setup-uv publishes only concrete tags (v10.0.0, v10.1.0, ...); there is no
       # floating `v10`, so this must stay pinned or the job fails to resolve.
-      uses: astral-sh/setup-uv@v10.2.0
+      uses: astral-sh/setup-uv@v10.4.0
       with:
         enable-cache: true
 
@@ -82,4 +82,4 @@ jobs:
         uv run --no-sync python -m unittest discover -s tests -t . -v
 
     - name: Lint for real errors (pyflakes + syntax)
-      run: uvx ruff@latest check --no-cache --select F,E9 chainnokizuna config.py tests
+      run: uvx ruff@0.17.6 check --no-cache --select F,E9 chainnokizuna config.py tests

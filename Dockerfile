@@ -6,7 +6,7 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
 # Install uv
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uv/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.13.9 /uv /uv/bin/uv
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
