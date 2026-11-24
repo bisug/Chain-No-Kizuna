@@ -3,8 +3,8 @@
 
 **Chain No Kizuna** is a high-performance, industry-ready Telegram Word Chain game bot.
 
-[![Python 3.14](https://img.shields.io/badge/python-3.14-blue.svg)](https://www.python.org/downloads/release/python-3147/)
-[![aiogram 3.31.0](https://img.shields.io/badge/aiogram-3.31.0-teal.svg)](https://github.com/aiogram/aiogram)
+[![Python 3.14.10](https://img.shields.io/badge/python-3.14.10-blue.svg)](https://www.python.org/downloads/release/python-31410/)
+[![aiogram 3.34.0](https://img.shields.io/badge/aiogram-3.34.0-teal.svg)](https://github.com/aiogram/aiogram)
 [![Heroku Ready](https://img.shields.io/badge/deployment-Heroku--Ready-purple.svg)](https://heroku.com/deploy?template=https://github.com/bisug/Chain-No-Kizuna)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -40,7 +40,7 @@ All core game mechanics and the initial architecture are credited to the origina
 
 Compared to the original repository, this fork introduces significant architectural and functional enhancements:
 
-◈ **Modern Tech Stack**: Fully updated to **Python 3.14.7-slim** and **aiogram 3.31.0** for peak performance and long-term support.
+◈ **Modern Tech Stack**: Fully updated to **Python 3.14.10-slim** and **aiogram 3.34.0** for peak performance and long-term support.
 
 ◈ **Database & Cache Migration**: 
   - Integrated **MongoDB** for robust global statistics and game archives.
@@ -60,7 +60,7 @@ Compared to the original repository, this fork introduces significant architectu
 
 ◈ **Curated Word Pools**: the bot picks its own words (opening word, Virtual Player replies) from small, everyday-word pools instead of the full 367k list, so it never opens a game on an obscure word. Player input is still validated against the full list, so a pool never narrows the game.
 
-◈ **Test Suite & CI**: 119 stdlib `unittest` tests plus a `ruff` gate run on every push and pull request.
+◈ **Test Suite & CI**: 120 stdlib `unittest` tests plus a `ruff` gate run on every push and pull request.
 
 ---
 
@@ -119,11 +119,11 @@ Ten modes, all resolvable by the same `/start<mode>` handler:
 
 ## | Tech Stack
 
-◈ **Runtime**: Python 3.14.7 (`requires-python >= 3.14`)
+◈ **Runtime**: Python 3.14.10 (`requires-python >= 3.14`)
 
 ◈ **Package Manager**: [uv](https://docs.astral.sh/uv/) (`uv.lock` is committed; builds use `uv sync --frozen`)
 
-◈ **Framework**: [aiogram 3.31.0](https://github.com/aiogram/aiogram) (Asynchronous Telegram API)
+◈ **Framework**: [aiogram 3.34.0](https://github.com/aiogram/aiogram) (Asynchronous Telegram API)
 
 ◈ **Dictionary**: [dawg2](https://pypi.org/project/dawg2/) `CompletionDAWG`
 
@@ -201,7 +201,7 @@ Chain-No-Kizuna/
 │   │   ├── all-five.json        # 5-letter answer set (Guess the Word)
 │   │   └── commonfiveletterwords.json  # 5-letter words with meanings
 │   └── __main__.py          # Application entry point
-├── tests/                   # stdlib unittest suite (119 tests)
+├── tests/                   # stdlib unittest suite (120 tests)
 ├── tools/build_wordlist.py  # Rebuilds data/wordlist.txt from upstream sources
 ├── config.py                # Global settings & game balance
 ├── LICENSE                  # MIT License file
@@ -213,7 +213,7 @@ Chain-No-Kizuna/
 ├── Procfile                 # Heroku process configuration
 ├── pyproject.toml           # Project metadata & pinned dependencies
 ├── uv.lock                  # Pinned dependency lockfile (required by `uv sync --frozen`)
-├── .python-version          # Pinned CPython version (3.14.7) for uv
+├── .python-version          # Pinned CPython version (3.14.10) for uv
 ├── .env.template            # Environment variable template
 └── .github/
     ├── dependabot.yml       # Weekly uv lockfile updates
@@ -478,12 +478,12 @@ OWNER_ID=1 \
 uv run --no-sync python -m unittest discover -s tests -t . -v
 ```
 
-◈ **Live Redis**: `tests/test_leader.py` includes one test that needs a real Redis server. It is skipped unless `RUN_REDIS_TESTS=1` is set. Export that variable to include it, as `.github/workflows/tests.yml` does (it starts a `redis:8-alpine` service container).
+◈ **Live Redis**: `tests/test_leader.py` includes one test that needs a real Redis server. It is skipped unless `RUN_REDIS_TESTS=1` is set. Export that variable to include it, as `.github/workflows/tests.yml` does (it starts a `redis:8.12.0-alpine` service container).
 
 ◈ **Lint**: the CI gate is `ruff` restricted to real errors, not style:
 
 ```bash
-uvx ruff@latest check --no-cache --select F,E9 chainnokizuna config.py tests
+uvx ruff@0.17.6 check --no-cache --select F,E9 chainnokizuna config.py tests
 ```
 
 ---
