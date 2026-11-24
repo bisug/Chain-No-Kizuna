@@ -9,7 +9,8 @@ from aiogram import types
 
 from chainnokizuna.core import resources
 from chainnokizuna.core.resources import GlobalState, close_resources
-from tests.helpers import make_message, make_user, run
+from chainnokizuna.models.player import Player
+from tests.helpers import make_bot_full_info, make_message, make_user, run
 
 
 class TestCloseResourcesIsComplete(unittest.TestCase):
@@ -99,6 +100,17 @@ class TestForwardOriginReplacesForwardFrom(unittest.TestCase):
         self.assertEqual(original_sender.id, 999)
         # The old expression would have fallen through to the forwarder.
         self.assertIsNone(message.forward_from)
+
+
+class TestBotFullInfoPlayer(unittest.TestCase):
+    """aiogram 3.34 getMe/me() return BotFullInfo, not User."""
+
+    def test_player_accepts_bot_full_info(self):
+        bot_user = make_bot_full_info()
+        player = Player(bot_user)
+        self.assertEqual(player.user_id, bot_user.id)
+        self.assertEqual(player._username, bot_user.username)
+        self.assertEqual(player._name, bot_user.full_name)
 
 
 class TestGlobalStateIsCleanBetweenTests(unittest.TestCase):

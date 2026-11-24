@@ -15,7 +15,7 @@ class Player:
         "word_count",
     )
 
-    def __init__(self, user: types.User) -> None:
+    def __init__(self, user: types.User | types.BotFullInfo) -> None:
         self._username = user.username
         self._name = user.full_name
         self.user_id = user.id
@@ -76,7 +76,7 @@ class Player:
         return f"<a href='tg://user?id={self.user_id}'>{html.quote(self._name)}</a>"
 
     @classmethod
-    async def create(cls, user: types.User) -> Player:
+    async def create(cls, user: types.User | types.BotFullInfo) -> Player:
         return Player(user)
 
     @staticmethod

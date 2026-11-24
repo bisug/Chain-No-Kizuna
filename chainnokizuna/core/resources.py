@@ -5,8 +5,9 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 import redis.asyncio as redis
-from aiogram import Bot, types
+from aiogram import Bot
 from aiogram.client.default import DefaultBotProperties
+from aiogram.types import BotFullInfo
 from aiogram.enums import ParseMode
 from pymongo import AsyncMongoClient
 
@@ -34,8 +35,8 @@ class GlobalState:
     games: dict[int, ClassicGame] = {}  # group id -> game instance
     games_lock: asyncio.Lock = asyncio.Lock()
 
-    bot_user: types.User | None = None
-    vp_user: types.User | None = None
+    bot_user: BotFullInfo | None = None
+    vp_user: BotFullInfo | None = None
 
 
 bot = Bot(

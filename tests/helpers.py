@@ -14,6 +14,30 @@ def make_user(
     )
 
 
+def make_bot_full_info(
+    user_id: int = 888, name: str = "Virtual Player"
+) -> types.BotFullInfo:
+    """Bot API 10.5 getMe result; aiogram 3.34 no longer returns a User here."""
+    return types.BotFullInfo(
+        id=user_id,
+        is_bot=True,
+        first_name=name,
+        username=f"vp{user_id}",
+        can_join_groups=False,
+        can_read_all_group_messages=False,
+        supports_guest_queries=False,
+        supports_inline_queries=False,
+        needs_inline_query_location=False,
+        can_connect_to_business=False,
+        has_main_web_app=False,
+        has_topics_enabled=False,
+        allows_users_to_create_topics=False,
+        has_topic_sidebar=False,
+        can_manage_bots=False,
+        supports_join_request_queries=False,
+    )
+
+
 def make_message(
     text: str = "hello",
     chat_id: int = -1001234567890,
