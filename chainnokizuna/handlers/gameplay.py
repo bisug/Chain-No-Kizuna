@@ -123,6 +123,9 @@ async def cmd_join(message: types.Message) -> None:
 async def cmd_forcejoin(message: types.Message) -> None:
     group_id = message.chat.id
     rmsg = message.reply_to_message
+    # from_user is None for channel posts / anonymous admins
+    if rmsg is not None and rmsg.from_user is None:
+        return
     if rmsg and rmsg.from_user.is_bot:  # Virtual Player only
         if vp_bot and rmsg.from_user.id == vp_bot.id:
             await cmd_addvp(message)
@@ -195,7 +198,7 @@ async def cmd_addvp(message: types.Message) -> None:
     vp_user = GlobalState.vp_user
     if isinstance(GlobalState.games[group_id], EliminationGame):
         await message.reply(
-            f"Sorry, <a href='https://t.me/{vp_user.username}'>{vp_user.full_name}</a> "
+            f"Sorry, <a href='https://t.me/{vp_user.username}'>{html.quote(vp_user.full_name)}</a> "
             "can't play elimination games."
         )
         return

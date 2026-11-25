@@ -9,13 +9,15 @@ import datetime
 import unittest
 from unittest import mock
 
-from aiogram import types
+from aiogram import html, types
+from aiogram.exceptions import TelegramRetryAfter
 
 import chainnokizuna.db.redis as redis_mod
 from chainnokizuna.core.resources import GlobalState
 from chainnokizuna.handlers import errors
 from chainnokizuna.models.game.classic import ClassicGame
 from tests.helpers import make_message, run
+from tests.test_handler_escaping import _HTMLSafetyMixin
 
 
 class TestErrorHandlerWithoutAdminGroup(unittest.TestCase):
@@ -334,6 +336,62 @@ class TestErrorHandlerNeverMasksTheRealError(unittest.TestCase):
 
         with self.assertRaises(RuntimeError):
             run(scenario())  # original error, not KeyError
+
+
+class TestAdminReportIsHTMLEscaped(unittest.TestCase, _HTMLSafetyMixin):
+    """The admin report is sent as HTML; raw exception text can break the send."""
+
+    def setUp(self):
+        GlobalState.games.clear()
+
+    def tearDown(self):
+        GlobalState.games.clear()
+
+    def _callback_update(self):
+        return types.Update(
+            update_id=42,
+            callback_query=types.CallbackQuery(
+                id="q",
+                from_user=types.User(id=1, is_bot=False, first_name="U"),
+                chat_instance="ci",
+                data="d",
+            ),
+        )
+
+    def _report_body(self, error):
+        async def scenario():
+            with mock.patch.object(
+                errors, "send_admin_group", new=mock.AsyncMock()
+            ) as send:
+                with self.assertRaises(type(error)):
+                    await errors.error_handler(
+                        types.ErrorEvent(
+                            update=self._callback_update(), exception=error
+                        )
+                    )
+            return send.call_args.args[0]
+
+        return run(scenario())
+
+    def test_traceback_is_escaped(self):
+        error_text = "boom <script> & bad"
+        body = self._report_body(RuntimeError(error_text))
+        self.assertIn(html.quote(error_text), body)
+        self.assertIsNone(
+            self._would_telegram_reject(body),
+            f"admin report would be rejected: {self._would_telegram_reject(body)}",
+        )
+
+    def test_retry_after_description_is_escaped(self):
+        error = TelegramRetryAfter(
+            method=None, message="slow <script> & down", retry_after=3
+        )
+        body = self._report_body(error)
+        self.assertIn(html.quote(str(error)), body)
+        self.assertIsNone(
+            self._would_telegram_reject(body),
+            f"admin report would be rejected: {self._would_telegram_reject(body)}",
+        )
 
 
 if __name__ == "__main__":

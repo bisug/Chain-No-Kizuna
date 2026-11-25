@@ -2,7 +2,7 @@ import asyncio
 import logging
 import traceback
 
-from aiogram import types
+from aiogram import html, types
 from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramMigrateToChat, TelegramRetryAfter
 
@@ -79,10 +79,15 @@ async def error_handler(event: types.ErrorEvent) -> None:
     where = group_id if group_id is not None else "idk"
     if isinstance(error, TelegramRetryAfter):
         body = (
-            f"<code>{error.__class__.__name__} @ {where}</code>:\n<pre>{error!s}</pre>"
+            f"<code>{error.__class__.__name__} @ {where}</code>:\n"
+            f"<pre>{html.quote(str(error))}</pre>"
         )
     else:
-        body = "<pre>" + "".join(traceback.format_exception(error)) + f"@ {where}</pre>"
+        body = (
+            "<pre>"
+            + html.quote("".join(traceback.format_exception(error)))
+            + f"@ {where}</pre>"
+        )
 
     try:
         send_admin_msg = await send_admin_group(body, parse_mode=ParseMode.HTML)

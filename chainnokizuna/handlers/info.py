@@ -166,12 +166,12 @@ async def cmd_playinggroups(message: types.Message) -> None:
         try:
             group = await message.bot.get_chat(group_id)
         except Exception as e:
-            text = f"<code>[{e.__class__.__name__}: {e}]</code>"
+            text = f"<code>[{e.__class__.__name__}: {html.quote(str(e))}]</code>"
         else:
             if group.username:
                 text = f"<a href='https://t.me/{group.username}'>{html.quote(group.title)}</a>"
             else:
-                text = f"<b>{group.title}</b>"
+                text = f"<b>{html.quote(group.title)}</b>"
 
         if group_id not in GlobalState.games:  # In case the game ended during API calls
             return

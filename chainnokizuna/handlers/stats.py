@@ -125,7 +125,7 @@ _GLOBAL_STATS_TTL = 30  # seconds
 
 async def get_global_stats() -> str:
     global _global_stats_cache
-    now = time.time()
+    now = time.monotonic()
 
     if _global_stats_cache and (now - _global_stats_cache[0]) < _GLOBAL_STATS_TTL:
         return _global_stats_cache[1]
@@ -160,7 +160,7 @@ async def get_global_stats() -> str:
         f"<b>{letter_cnt}</b> total letters played"
     )
 
-    _global_stats_cache = (now, result)
+    _global_stats_cache = (time.monotonic(), result)
     return result
 
 
@@ -197,12 +197,12 @@ async def get_leaderboard_page(page: int) -> tuple[str, types.InlineKeyboardMark
     # every page click. Cache it briefly; the leaderboard moves slowly and a
     # slightly stale page count is harmless.
     global _leaderboard_count_cache, _leaderboard_total_at
-    now = time.time()
+    now = time.monotonic()
     total_count = _leaderboard_count_cache
     if total_count is None or (now - _leaderboard_total_at) > _LEADERBOARD_COUNT_TTL:
         total_count = await db.players.count_documents({"guess_word_wins": {"$gt": 0}})
         _leaderboard_count_cache = total_count
-        _leaderboard_total_at = now
+        _leaderboard_total_at = time.monotonic()
 
     max_pages = max(1, math.ceil(total_count / limit))
 
@@ -235,7 +235,11 @@ async def get_leaderboard_page(page: int) -> tuple[str, types.InlineKeyboardMark
             )
             # Get user info if available, else use fallback
             # Try to get persisted name, fallback to User ID
-            name = p.get("full_name") or f"User <code>{p['_id']}</code>"
+            name = (
+                html.quote(p["full_name"])
+                if p.get("full_name")
+                else f"User <code>{p['_id']}</code>"
+            )
             text += f"{medal} {name} — <b>{p['guess_word_wins']}</b> wins\n"
 
     # Navigation buttons
