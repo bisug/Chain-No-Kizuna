@@ -109,6 +109,23 @@ class TestOptionalVariables(unittest.TestCase):
         finally:
             importlib.reload(config)
 
+    def test_vip_group_accepts_negative_comma_separated_ids(self):
+        # Supergroup IDs are negative; isdigit() silently dropped them.
+        os.environ["VIP_GROUP"] = "-1001234,-1005678"
+        try:
+            self.assertEqual(importlib.reload(config).VIP_GROUP, [-1001234, -1005678])
+        finally:
+            os.environ.pop("VIP_GROUP", None)
+            importlib.reload(config)
+
+    def test_vip_list_skips_malformed_entries(self):
+        os.environ["VIP"] = "1,a,-b,-1001234,2"
+        try:
+            self.assertEqual(importlib.reload(config).VIP, [1, -1001234, 2])
+        finally:
+            os.environ.pop("VIP", None)
+            importlib.reload(config)
+
     def test_vip_list_defaults_to_empty(self):
         for key in ("VIP", "VIP_GROUP"):
             os.environ.pop(key, None)

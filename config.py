@@ -28,7 +28,10 @@ def get_list(key: str, default: str = "") -> list[int]:
             return [int(i) for i in data]
     except orjson.JSONDecodeError, ValueError:
         pass
-    return [int(i.strip()) for i in val.split(",") if i.strip().isdigit()]
+    parts = (i.strip() for i in val.split(","))
+    return [
+        int(i) for i in parts if i.isdigit() or (i.startswith("-") and i[1:].isdigit())
+    ]
 
 
 def get_str(key: str, default: str = "") -> str:
