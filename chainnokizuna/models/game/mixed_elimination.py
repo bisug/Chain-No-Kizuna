@@ -96,34 +96,40 @@ class MixedEliminationGame(EliminationGame):
         return True
 
     async def handle_answer(self, message: types.Message) -> None:
-        word = message.text.lower()
+        async with self.answer_lock:
+            # Re-verify state inside the lock: the caller checked these before
+            # awaiting, and validation here yields to other in-flight answers.
+            if self.answered or not self.accepting_answers:
+                return
 
-        # Starting letter
-        if self.game_mode is ChosenFirstLetterGame:
-            if not word.startswith(self.current_word[0]):
+            word = message.text.lower()
+
+            # Starting letter
+            if self.game_mode is ChosenFirstLetterGame:
+                if not word.startswith(self.current_word[0]):
+                    await message.reply(
+                        f"<i>{word.capitalize()}</i> does not start with <i>{self.current_word[0].upper()}</i>."
+                    )
+                    return
+            elif not word.startswith(self.current_word[-1]):
                 await message.reply(
-                    f"<i>{word.capitalize()}</i> does not start with <i>{self.current_word[0].upper()}</i>."
+                    f"<i>{word.capitalize()}</i> does not start with <i>{self.current_word[-1].upper()}</i>."
                 )
                 return
-        elif not word.startswith(self.current_word[-1]):
-            await message.reply(
-                f"<i>{word.capitalize()}</i> does not start with <i>{self.current_word[-1].upper()}</i>."
-            )
-            return
 
-        if word in self.used_words:
-            await message.reply(f"<i>{word.capitalize()}</i> has been used.")
-            return
-        if not check_word_existence(word):
-            await message.reply(
-                f"<i>{word.capitalize()}</i> is not in my list of words."
-            )
-            return
-        if not await self.additional_answer_checkers(word, message):
-            return
+            if word in self.used_words:
+                await message.reply(f"<i>{word.capitalize()}</i> has been used.")
+                return
+            if not check_word_existence(word):
+                await message.reply(
+                    f"<i>{word.capitalize()}</i> is not in my list of words."
+                )
+                return
+            if not await self.additional_answer_checkers(word, message):
+                return
 
-        self.post_turn_processing(word)
-        await self.send_post_turn_message(word)
+            self.post_turn_processing(word)
+            await self.send_post_turn_message(word)
 
     def post_turn_processing(self, word: str) -> None:
         super().post_turn_processing(word)
@@ -145,8 +151,10 @@ class MixedEliminationGame(EliminationGame):
         elif self.game_mode is ChosenFirstLetterGame:
             # Ensure uniform probability of each letter as the starting letter
             # Prefixed, so ~0.1ms; stays synchronous to keep this branch inline.
-            self.current_word = get_random_word(
-                prefix=random.choice(ascii_lowercase), pool=self.word_pool
+            self.current_word = self.require_starting_word(
+                get_random_word(
+                    prefix=random.choice(ascii_lowercase), pool=self.word_pool
+                )
             )
         else:
             self.current_word = self.require_starting_word(
