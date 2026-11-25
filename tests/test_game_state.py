@@ -235,8 +235,7 @@ class TestStaleTimerScanIsIdempotent(unittest.TestCase):
 class TestTeardownToleratesConcurrentRemoval(unittest.TestCase):
     """/killgame and error_handler delete the entry while main_loop still ticks.
 
-    The joining-phase teardown used `del`, which raised KeyError in that race;
-    every other teardown site already used pop(..., None).
+    The joining-phase teardown used `del`, which raised KeyError in that race.
     """
 
     GROUP_ID = -100556

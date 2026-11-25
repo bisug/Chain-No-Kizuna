@@ -11,10 +11,8 @@ COPY --from=ghcr.io/astral-sh/uv:0.13.9 /uv /uv/bin/uv
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    libcairo2-dev \
     pkg-config \
     python3-dev \
-    libgirepository1.0-dev \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -38,13 +36,6 @@ ENV PATH="/app/.venv/bin:$PATH"
 
 # Set work directory
 WORKDIR /app
-
-# Install runtime system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libcairo2 \
-    libgirepository-1.0-1 \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
 
 # Create a non-root user for security
 RUN groupadd -r kizuna && useradd -r -g kizuna kizuna

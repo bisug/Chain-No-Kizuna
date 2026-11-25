@@ -55,8 +55,7 @@
     },
     "WORD_ADDITION_CHANNEL_ID": {
       "description": "ID of the channel where word additions are announced",
-      "required": false,
-      "value": "0"
+      "required": false
     },
     "VIP": {
       "description": "Comma-separated list of VIP user IDs or JSON list",

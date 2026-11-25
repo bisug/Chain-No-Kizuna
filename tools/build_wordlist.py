@@ -11,7 +11,7 @@ Two problems it fixes, both found by measuring the previous list:
 
 Proper nouns. dwyl/english-words capitalises 79,394 of its 466,550 entries --
 cities, people, taxonomic names. The old loader lowercased everything, so
-"aachen" and "aaron" were accepted as ordinary words, which is 18% of the
+"aachen" and "aaron" were accepted as ordinary words, which is 17% of the
 list. A capitalised entry is now removed unless another dictionary calls it a
 word, because lowercasing alone cannot tell a proper noun from a common one.
 

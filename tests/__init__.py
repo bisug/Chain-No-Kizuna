@@ -1,6 +1,6 @@
 """Test suite for the Chain No Kizuna bot.
 
-Uses only the standard library (unittest) so no new dependency is introduced.
+Uses the standard-library unittest runner; no test framework dependency is added.
 
 config.py refuses to import without credentials, so the required variables are
 stubbed here before any application module is imported. Tests that need a

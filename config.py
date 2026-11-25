@@ -85,7 +85,7 @@ OWNER_ID: int = int(get_required("OWNER_ID"))
 ADMIN_GROUP_ID: int = get_int("ADMIN_GROUP_ID")
 # ID of your community's official game group (0 disables the welcome message)
 OFFICIAL_GROUP_ID: int = get_int("OFFICIAL_GROUP_ID")
-# ID of the channel for word addition announcements (0 disables announcements)
+# ID of the channel for word addition announcements
 WORD_ADDITION_CHANNEL_ID: int = get_int("WORD_ADDITION_CHANNEL_ID")
 
 # --- Permissions & Access ---

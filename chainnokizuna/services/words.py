@@ -43,8 +43,8 @@ class Words:
                 async with aiofiles.open(WORDLIST_FILE, "r", encoding="utf-8") as f:
                     return (await f.read()).splitlines()
             except FileNotFoundError:
-                # No fallback source exists any more, so this is fatal rather than
-                # a degraded start. Every game mode that draws a word needs it.
+                # A missing file leaves only DB words; update() raises only if both
+                # sources are empty.
                 logger.error(f"Word list not found at {WORDLIST_FILE}.")
                 return []
 
@@ -93,8 +93,8 @@ class Words:
 async def load_pools() -> None:
     """Builds the curated pools that ship alongside the full word list.
 
-    The full source list is exhaustive but contains 3-letter strings like "qwl"
-    and "mpu" that no player would guess, and 126k words longer than the game
+    The full source list is exhaustive but contains 3-letter strings like "cwm"
+    and "zax" that no player would guess, and 126k words longer than the game
     ever accepts. The bot picks its own starting words and plays as the VP, so
     it can emit an unplayable prompt or stall on a letter with almost no
     candidates. Curated pools give it sane choices without narrowing what a

@@ -11,7 +11,7 @@ from aiogram.enums import ParseMode
 from aiogram.types import BotFullInfo
 from pymongo import AsyncMongoClient
 
-# PyMongo 4.18 moved the async types out of the top-level namespace.
+# AsyncDatabase is imported from pymongo.asynchronous.database (PyMongo 4.20.1).
 from pymongo.asynchronous.database import AsyncDatabase
 from redis.exceptions import TimeoutError as RedisTimeoutError
 
