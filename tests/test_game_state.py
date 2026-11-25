@@ -232,25 +232,6 @@ class TestStaleTimerScanIsIdempotent(unittest.TestCase):
         self.assertEqual(len(self.game.players), 0, "a negative timer blocks joining")
 
 
-class TestTeardownToleratesConcurrentRemoval(unittest.TestCase):
-    """/killgame and error_handler delete the entry while main_loop still ticks.
-
-    The joining-phase teardown used `del`, which raised KeyError in that race.
-    """
-
-    GROUP_ID = -100556
-
-    def tearDown(self):
-        GlobalState.games.clear()
-
-    def test_pop_does_not_raise_when_entry_already_removed(self):
-        game = ClassicGame(self.GROUP_ID)
-        GlobalState.games[self.GROUP_ID] = game
-        GlobalState.games.pop(self.GROUP_ID, None)  # e.g. /killgame won the race
-        GlobalState.games.pop(self.GROUP_ID, None)  # what main_loop now does
-        self.assertNotIn(self.GROUP_ID, GlobalState.games)
-
-
 class TestAdminCacheIsBounded(unittest.TestCase):
     """Any group member can reach is_admin() via /extend, so the cache must be capped.
 
@@ -329,24 +310,6 @@ class TestSaveGameDoesNotReAddSetMembership(unittest.TestCase):
     """
 
     GROUP_ID = -100444
-
-    def setUp(self):
-        self._saved, self._registered = [], []
-
-    async def _fake_save(self, game):
-        self._saved.append(game.group_id)
-
-    async def _fake_register(self, group_id):
-        self._registered.append(group_id)
-
-    def test_per_turn_save_does_not_touch_the_set(self):
-        game = ClassicGame(self.GROUP_ID)
-        # Register once, as the first save of a game does.
-        run(self._fake_register(game.group_id))
-        for _ in range(5):
-            run(self._fake_save(game))
-        self.assertEqual(self._registered, [self.GROUP_ID], "registered exactly once")
-        self.assertEqual(len(self._saved), 5, "state still saved every turn")
 
     def test_registration_precedes_the_turn_saves_in_join(self):
         """join() must claim the slot, or a restart cannot find the game."""

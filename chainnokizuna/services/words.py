@@ -66,18 +66,17 @@ class Words:
         db_words = await db_task
         if not file_words:
             logger.warning("Bundled word list unavailable. Using only DB words.")
-        wordlist = list(set(file_words + db_words))
+        wordlist = set(file_words + db_words)
 
         logger.info("Processing words")
 
-        def build_dawg(words_list: list[str]) -> CompletionDAWG:
-            filtered = [w.lower() for w in words_list if w.isalpha()]
-            return CompletionDAWG(filtered)
+        def build_dawg(words: set[str]) -> tuple[CompletionDAWG, int]:
+            cleaned = {w.lower() for w in words if w.isalpha()}
+            return CompletionDAWG(cleaned), len(cleaned)
 
         loop = asyncio.get_running_loop()
-        Words.dawg = await loop.run_in_executor(None, build_dawg, wordlist)
+        Words.dawg, Words.count = await loop.run_in_executor(None, build_dawg, wordlist)
 
-        Words.count = len(Words.dawg.keys())
         if not Words.count:
             # An empty DAWG makes get_random_word() return None, which crashes every
             # game mode that picks a starting word. Fail loudly instead of silently.
@@ -106,7 +105,7 @@ async def load_pools() -> None:
     """
     loop = asyncio.get_running_loop()
 
-    def build(words: list[str]) -> CompletionDAWG:
+    def build(words: set[str]) -> CompletionDAWG:
         return CompletionDAWG(words)
 
     for name, path in WORD_POOL_FILES.items():
@@ -120,13 +119,13 @@ async def load_pools() -> None:
             logger.error(f"Failed to load word pool {name!r} from {path}: {e}")
             continue
 
-        cleaned = [w.lower() for w in words if isinstance(w, str) and w.isalpha()]
+        cleaned = {w.lower() for w in words if isinstance(w, str) and w.isalpha()}
         if not cleaned:
             logger.error(f"Word pool {name!r} is empty after filtering; skipping.")
             continue
 
         Words.pools[name] = await loop.run_in_executor(None, build, cleaned)
-        logger.info(f"Word pool {name!r}: {len(Words.pools[name].keys()):,} words")
+        logger.info(f"Word pool {name!r}: {len(cleaned):,} words")
 
 
 def get_pool(name: str | None = None) -> CompletionDAWG:

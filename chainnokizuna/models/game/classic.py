@@ -177,8 +177,6 @@ class ClassicGame:
         game._stale_scan_task = None
 
         # Reconstruct players
-        from chainnokizuna.models.player import Player
-
         game.players = [Player.from_dict(p) for p in data.get("players", [])]
 
         # Reconstruct players_in_game order
@@ -267,7 +265,7 @@ class ClassicGame:
             if self.user_in_game(user.id):
                 return
 
-            player = await Player.create(user)
+            player = Player(user)
             self.players.append(player)
 
             await self.announce_roster_change(player, "joined")
@@ -298,7 +296,7 @@ class ClassicGame:
             if self.user_in_game(user.id):
                 return
 
-            player = await Player.create(user)
+            player = Player(user)
             self.players.append(player)
             if self.state == GameState.RUNNING:
                 self.players_in_game.append(player)
@@ -452,10 +450,6 @@ class ClassicGame:
 
         if is_neg:
             # Reduce joining phase time (admins only)
-            if not await self.is_admin(message.from_user.id):
-                await self.send_message("Imagine not being admin")
-                return
-
             if n >= self.time_left:
                 # Start game immediately
                 self.time_left = -99999

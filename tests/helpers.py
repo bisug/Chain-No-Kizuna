@@ -63,26 +63,6 @@ def make_message(
     )
 
 
-class SilentBot:
-    """Stands in for a real Bot: records sends, never touches the network."""
-
-    def __init__(self):
-        self.sent = []
-
-    async def send_message(self, chat_id, text, **kwargs):
-        self.sent.append((chat_id, text, kwargs))
-        return make_message(text=str(text), chat_id=chat_id)
-
-    async def delete_message(self, chat_id, message_id):
-        self.sent.append(("delete", chat_id, message_id))
-
-    async def get_chat_member(self, chat_id, user_id):
-        return types.ChatMember(member=make_user(user_id), status="creator")
-
-    async def get_chat(self, chat_id):
-        return types.Chat(id=chat_id, type="supergroup", title="Test Group")
-
-
 def run(coro):
     """Run a coroutine on a fresh event loop."""
     return asyncio.run(coro)

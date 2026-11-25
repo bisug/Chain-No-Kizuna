@@ -75,10 +75,6 @@ class Player:
     def mention(self) -> str:
         return f"<a href='tg://user?id={self.user_id}'>{html.quote(self._name)}</a>"
 
-    @classmethod
-    async def create(cls, user: types.User | types.BotFullInfo) -> Player:
-        return Player(user)
-
     @staticmethod
     async def vp() -> Player:
         if vp_bot is None:

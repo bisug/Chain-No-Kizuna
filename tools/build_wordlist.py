@@ -82,9 +82,7 @@ def main() -> int:
         if w.strip().isalpha() and re.search(r"[A-Z]", w.strip())
     }
 
-    current = (
-        set(open(OUT_PATH, encoding="utf-8").read().splitlines()) if OUT_PATH else set()
-    )
+    current = set(open(OUT_PATH, encoding="utf-8").read().splitlines())
     veto = enable1 | popular | curated
     removed = proper_nouns - veto
     words = (current - removed) | enable1
@@ -95,7 +93,7 @@ def main() -> int:
 
     # Verify against the real DAWG rather than trusting set arithmetic: it is the
     # structure the bot actually queries, and a mismatch here is silent at runtime.
-    dawg = CompletionDAWG(sorted(words))
+    dawg = CompletionDAWG(words)
     if len(dawg.keys()) != len(words):
         print(
             f"ERROR: DAWG holds {len(dawg.keys()):,} of {len(words):,} words",

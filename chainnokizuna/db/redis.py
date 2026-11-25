@@ -166,7 +166,8 @@ async def load_all_games() -> list[ClassicGame]:
 
     games = []
     try:
-        group_ids = set(await redis_client.smembers(ACTIVE_GAMES_KEY))
+        active_ids = set(await redis_client.smembers(ACTIVE_GAMES_KEY))
+        group_ids = set(active_ids)
 
         # Catch game keys the set does not list. SCAN rather than KEYS so this
         # does not block the server, and it only runs once at startup.
@@ -203,8 +204,10 @@ async def load_all_games() -> list[ClassicGame]:
 
             game = game_cls.from_dict(data)
             games.append(game)
-            # Re-assert membership so the index converges on the real keys.
-            await redis_client.sadd(ACTIVE_GAMES_KEY, gid)
+            # Re-assert membership only for keys SCAN found outside the set;
+            # games already indexed need no per-restore SADD.
+            if gid not in active_ids:
+                await redis_client.sadd(ACTIVE_GAMES_KEY, gid)
             logger.info(
                 f"Restored {type_name} for group {gid} ({len(game.players)} players)"
             )

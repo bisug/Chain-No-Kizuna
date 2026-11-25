@@ -475,10 +475,16 @@ class TestBundledWordList(unittest.TestCase):
     properties the loader depends on.
     """
 
-    def setUp(self):
+    @classmethod
+    def setUpClass(cls):
         from config import WORDLIST_FILE
 
-        self.path = WORDLIST_FILE
+        cls.path = WORDLIST_FILE
+        with open(WORDLIST_FILE, encoding="utf-8") as f:
+            cls.lines = f.read().splitlines()
+        cls.words = set(cls.lines)
+
+    def setUp(self):
         self.assertTrue(os.path.isfile(self.path), f"{self.path} is missing")
 
     def test_file_is_not_gitignored(self):
@@ -499,23 +505,17 @@ class TestBundledWordList(unittest.TestCase):
         )
 
     def test_contents_are_lowercase_alphabetic_one_per_line(self):
-        with open(self.path, encoding="utf-8") as f:
-            lines = f.read().splitlines()
-        self.assertGreater(len(lines), 100_000, "word list looks truncated")
-        self.assertEqual(lines, sorted(lines), "word list should be sorted")
-        bad = [w for w in lines if not w.isalpha() or not w.islower()]
+        self.assertGreater(len(self.lines), 100_000, "word list looks truncated")
+        self.assertEqual(self.lines, sorted(self.lines), "word list should be sorted")
+        bad = [w for w in self.lines if not w.isalpha() or not w.islower()]
         self.assertEqual(bad[:5], [], f"non-lowercase-alphabetic entries: {bad[:5]}")
 
     def test_no_duplicate_entries(self):
-        with open(self.path, encoding="utf-8") as f:
-            lines = f.read().splitlines()
-        self.assertEqual(len(lines), len(set(lines)), "word list has duplicates")
+        self.assertEqual(len(self.lines), len(self.words), "word list has duplicates")
 
     def test_ordinary_english_words_are_present(self):
-        with open(self.path, encoding="utf-8") as f:
-            words = set(f.read().splitlines())
         for word in ("apple", "banana", "orange", "piano", "zebra"):
-            self.assertIn(word, words)
+            self.assertIn(word, self.words)
 
 
 class TestWordListCleanup(unittest.TestCase):
@@ -527,11 +527,18 @@ class TestWordListCleanup(unittest.TestCase):
     by tools/build_wordlist.py; these pin the result.
     """
 
-    def setUp(self):
-        from config import WORDLIST_FILE
+    @classmethod
+    def setUpClass(cls):
+        import json
+
+        from config import WORDLIST_FILE, WORD_POOL_FILES
 
         with open(WORDLIST_FILE, encoding="utf-8") as f:
-            self.words = set(f.read().splitlines())
+            cls.words = set(f.read().splitlines())
+        cls.pools = {}
+        for name, path in WORD_POOL_FILES.items():
+            with open(path, encoding="utf-8") as f:
+                cls.pools[name] = json.load(f)
 
     def test_proper_nouns_are_rejected(self):
         for word in (
@@ -568,13 +575,8 @@ class TestWordListCleanup(unittest.TestCase):
     def test_pools_contain_no_removed_words(self):
         # The pools are what the bot actually plays from, so a proper noun there
         # is a word it would open a game with.
-        import json
-
-        from config import WORD_POOL_FILES
-
         for name in ("common", "five"):
-            with open(WORD_POOL_FILES[name], encoding="utf-8") as f:
-                pool = set(json.load(f))
+            pool = set(self.pools[name])
             self.assertTrue(pool)
             for word in ("aaron", "aberdeen", "abraham", "aaaa"):
                 self.assertNotIn(word, pool, f"{word!r} is in the {name} pool")
@@ -584,12 +586,7 @@ class TestWordListCleanup(unittest.TestCase):
             )
 
     def test_pools_still_hold_playable_words(self):
-        import json
-
-        from config import WORD_POOL_FILES
-
-        with open(WORD_POOL_FILES["common"], encoding="utf-8") as f:
-            common = json.load(f)
+        common = self.pools["common"]
         for word in ("apple", "orange", "piano", "house", "water"):
             self.assertIn(word, common)
         self.assertGreater(len(common), 5_000, "common pool shrank too far")

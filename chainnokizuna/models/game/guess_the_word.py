@@ -174,24 +174,24 @@ class GuessTheWordGame(ClassicGame):
                 (p for p in self.players if p.user_id == message.from_user.id), None
             )
             if not player:
-                player = await Player.create(message.from_user)
+                player = Player(message.from_user)
                 self.players.append(player)
 
             self.guess_count += 1
 
             # Calculate hints
             result = self._calculate_hints(guess)
-            emojis_spaced = " ".join(list(result))
+            emojis_spaced = " ".join(result)
             history_line = f"{emojis_spaced} <b>{guess.upper()}</b>"
             self.guess_history.append(history_line)
 
             # player is guaranteed non-None here: it was just found or created above.
+            header = f"<b>5-letter mode</b> · {self.guess_count}/{self.max_guesses}"
             if guess == self.target_word:
                 self.answered = True
             player.word_count += 1
             player.score += 100  # Bonus for winning
 
-            header = f"<b>5-letter mode</b> · {self.guess_count}/{self.max_guesses}"
             history_display = "\n".join(self.guess_history)
 
             await message.reply(
@@ -206,7 +206,6 @@ class GuessTheWordGame(ClassicGame):
             return
 
             # Not correct
-            header = f"<b>5-letter mode</b> · {self.guess_count}/{self.max_guesses}"
             # Telegram limit is 4096. Each line is ~20 chars. 100 lines = 2000 chars. Safe.
             # But we truncate just in case to keep the UI clean.
             visible_history = self.guess_history[-15:]  # Show last 15 guesses

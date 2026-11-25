@@ -119,28 +119,27 @@ async def init_resources() -> None:
         mongo_client = None
         raise
 
-    if REDIS_URL:
-        logger.info("Connecting to Redis...")
-        try:
-            vk = redis.from_url(
-                REDIS_URL,
-                decode_responses=True,
-                # Every turn of every game writes state, so a small pool becomes
-                # a queue under load. Sized above the expected concurrent games
-                # rather than the previous 20.
-                max_connections=100,
-                socket_keepalive=True,
-                # redis-py 6.0+ deprecated retry_on_timeout; name the errors instead.
-                retry_on_error=[RedisTimeoutError, socket.timeout, TimeoutError],
-                socket_connect_timeout=5,
-                socket_timeout=5,
-                health_check_interval=30,
-            )
-            await vk.ping()
-            logger.info("Redis connected.")
-        except Exception as e:
-            logger.error(f"Failed to connect to Redis: {e}")
-            vk = None
+    logger.info("Connecting to Redis...")
+    try:
+        vk = redis.from_url(
+            REDIS_URL,
+            decode_responses=True,
+            # Every turn of every game writes state, so a small pool becomes
+            # a queue under load. Sized above the expected concurrent games
+            # rather than the previous 20.
+            max_connections=100,
+            socket_keepalive=True,
+            # redis-py 6.0+ deprecated retry_on_timeout; name the errors instead.
+            retry_on_error=[RedisTimeoutError, socket.timeout, TimeoutError],
+            socket_connect_timeout=5,
+            socket_timeout=5,
+            health_check_interval=30,
+        )
+        await vk.ping()
+        logger.info("Redis connected.")
+    except Exception as e:
+        logger.error(f"Failed to connect to Redis: {e}")
+        vk = None
 
 
 async def ensure_indexes() -> None:

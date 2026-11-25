@@ -43,6 +43,7 @@ class TestErrorHandlerWithoutAdminGroup(unittest.TestCase):
             mock.patch.object(
                 errors, "send_admin_group", new=mock.AsyncMock(return_value=None)
             ),
+            mock.patch.object(errors.asyncio, "sleep", new=mock.AsyncMock()),
             self.assertRaises(RuntimeError) as ctx,
         ):
             run(errors.error_handler(self._event()))
@@ -60,6 +61,7 @@ class TestErrorHandlerWithoutAdminGroup(unittest.TestCase):
             mock.patch.object(
                 errors, "send_admin_group", new=mock.AsyncMock(return_value=None)
             ),
+            mock.patch.object(errors.asyncio, "sleep", new=mock.AsyncMock()),
             self.assertRaises(RuntimeError),
         ):
             run(errors.error_handler(self._event()))
@@ -95,6 +97,7 @@ class TestErrorHandlerWithoutAdminGroup(unittest.TestCase):
             mock.patch.object(
                 errors, "send_admin_group", new=mock.AsyncMock(return_value=admin_msg)
             ),
+            mock.patch.object(errors.asyncio, "sleep", new=mock.AsyncMock()),
             self.assertRaises(RuntimeError),
         ):
             run(errors.error_handler(self._event()))
