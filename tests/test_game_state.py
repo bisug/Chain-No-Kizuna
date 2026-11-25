@@ -529,6 +529,52 @@ class TestHtmlEscapingOfDynamicText(unittest.TestCase):
             "int() echoes its argument, so this carried owner input into HTML",
         )
 
+    def test_loop_failure_notices_escape_exception_text(self):
+        """main_loop and resume_loop render the exception into HTML.
+
+        A bare & or an unknown tag makes Telegram reject the whole notice, so
+        the group loses the only explanation for why its game disappeared.
+        """
+        import chainnokizuna.db.redis as redis_mod
+        import chainnokizuna.models.game.classic as classic_mod
+
+        exc = ValueError("owner input & <script>bad</script>")
+
+        async def boom_timer():
+            raise exc
+            yield  # pragma: no cover: makes this an async iterator
+
+        for loop_name in ("main_loop", "resume_loop"):
+            with self.subTest(loop=loop_name):
+                captured = []
+                game = ClassicGame(-1004322)
+                game.state = GameState.JOINING
+                send = mock.AsyncMock(side_effect=lambda *a, **k: captured.append(a[0]))
+
+                with (
+                    mock.patch.object(ClassicGame, "send_message", new=send),
+                    mock.patch.object(ClassicGame, "join", new=mock.AsyncMock()),
+                    mock.patch.object(classic_mod, "GameTimer", boom_timer),
+                    mock.patch.object(redis_mod, "remove_game", new=mock.AsyncMock()),
+                ):
+                    coro = (
+                        game.main_loop(make_message(text="/start"))
+                        if loop_name == "main_loop"
+                        else game.resume_loop()
+                    )
+                    with self.assertRaises(ValueError) as caught:
+                        run(coro)
+
+                self.assertIs(caught.exception, exc)
+                notices = [t for t in captured if "Game ended due to" in t]
+                self.assertEqual(len(notices), 1, "one failure notice should be sent")
+                notice = notices[0]
+                self.assertIn(html.quote(str(exc)), notice)
+                self.assertIsNone(
+                    self._would_telegram_reject(notice),
+                    f"notice would be rejected: {self._would_telegram_reject(notice)}",
+                )
+
     def test_guess_validation_rejects_non_ascii_letters(self):
         """str.isalpha() accepts any Unicode letter; is_word() does not."""
         from chainnokizuna.services.words import is_word

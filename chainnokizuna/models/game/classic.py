@@ -5,7 +5,7 @@ import time
 from datetime import UTC, datetime
 from typing import Any
 
-from aiogram import types
+from aiogram import html, types
 from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.utils.chat_member import ADMINS, MEMBERS
@@ -929,7 +929,7 @@ class ClassicGame:
             await remove_game(self.group_id)
             try:
                 await self.send_message(
-                    f"Game ended due to the following error:\n<code>{e.__class__.__name__}: {e}</code>.\n"
+                    f"Game ended due to the following error:\n<code>{e.__class__.__name__}: {html.quote(str(e))}</code>.\n"
                     "My owner will be notified."
                 )
             except Exception:
@@ -983,7 +983,7 @@ class ClassicGame:
             await remove_game(self.group_id)
             try:
                 await self.send_message(
-                    f"Game ended due to the following error:\n<code>{e.__class__.__name__}: {e}</code>.\n"
+                    f"Game ended due to the following error:\n<code>{e.__class__.__name__}: {html.quote(str(e))}</code>.\n"
                     "My owner will be notified."
                 )
             except Exception:
