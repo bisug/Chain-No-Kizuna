@@ -187,23 +187,24 @@ class GuessTheWordGame(ClassicGame):
 
             # player is guaranteed non-None here: it was just found or created above.
             header = f"<b>5-letter mode</b> · {self.guess_count}/{self.max_guesses}"
-            if guess == self.target_word:
+            is_correct = guess == self.target_word
+            if is_correct:
                 self.answered = True
+                player.score += 100  # Bonus for winning
             player.word_count += 1
-            player.score += 100  # Bonus for winning
 
-            history_display = "\n".join(self.guess_history)
-
-            await message.reply(
-                f"🎉 <b>BINGO!</b>\n\n"
-                f"{header}\n\n"
-                f"{history_display}\n\n"
-                f"The word was indeed <b>{self.target_word.upper()}</b>.\n"
-                f"Winner: {message.from_user.mention_html()}",
-                parse_mode=ParseMode.HTML,
-            )
-            await self.handle_game_end_winner(message.from_user)
-            return
+            if is_correct:
+                history_display = "\n".join(self.guess_history)
+                await message.reply(
+                    f"🎉 <b>BINGO!</b>\n\n"
+                    f"{header}\n\n"
+                    f"{history_display}\n\n"
+                    f"The word was indeed <b>{self.target_word.upper()}</b>.\n"
+                    f"Winner: {message.from_user.mention_html()}",
+                    parse_mode=ParseMode.HTML,
+                )
+                await self.handle_game_end_winner(message.from_user)
+                return
 
             # Not correct
             # Telegram limit is 4096. Each line is ~20 chars. 100 lines = 2000 chars. Safe.

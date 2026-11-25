@@ -13,6 +13,8 @@ import pathlib
 import unittest
 from unittest import mock
 
+from aiogram import types
+
 from chainnokizuna.models.game import guess_the_word as gtw_mod
 from chainnokizuna.models.game.classic import ClassicGame
 from chainnokizuna.models.game.guess_the_word import GuessTheWordGame
@@ -176,6 +178,98 @@ class TestUpdateDbParticipantSchema(unittest.TestCase):
                 rendered = str(self._participants(cls))
                 self.assertNotIn("<", rendered)
                 self.assertNotIn(">", rendered)
+
+
+class TestWinBonusIsOnlyAwardedOnCorrectGuess(unittest.TestCase):
+    """score += 100 is a win bonus; wrong guesses must not collect it."""
+
+    def _game_and_player(self):
+        game = GuessTheWordGame(-1004243)
+        game.target_word = "zebra"
+        game.dictionary = ["apple", "melon", "zebra"]
+        game.max_guesses = 30
+        game.guess_count = 0
+        game.guess_history = []
+        game.accepting_answers = True
+        game.answered = False
+        game.last_waiting_msg_id = None
+        player = Player(make_user(user_id=5, name="Ada"))
+        game.players = [player]
+        game.players_in_game = [player]
+        return game, player
+
+    def _score_after_guess(self, guess):
+        game, player = self._game_and_player()
+        message = make_message(text=guess, user=make_user(user_id=5, name="Ada"))
+
+        async def scenario():
+            with (
+                mock.patch(
+                    "chainnokizuna.models.game.guess_the_word.is_word",
+                    return_value=True,
+                ),
+                mock.patch.object(types.Message, "reply", new=mock.AsyncMock()),
+                mock.patch.object(
+                    GuessTheWordGame, "handle_game_end_winner", new=mock.AsyncMock()
+                ),
+                mock.patch("chainnokizuna.db.redis.save_game", new=mock.AsyncMock()),
+            ):
+                await game.handle_answer(message)
+
+        run(scenario())
+        return player.score
+
+    def test_wrong_guess_does_not_award_the_win_bonus(self):
+        self.assertEqual(self._score_after_guess("apple"), 0)
+
+    def test_correct_guess_awards_the_win_bonus(self):
+        self.assertEqual(self._score_after_guess("zebra"), 100)
+
+
+class TestWrongGuessDoesNotEndGame(unittest.TestCase):
+    """A valid but incorrect guess must show hints, not win the game."""
+
+    def test_wrong_guess_posts_hint_and_keeps_game_running(self):
+        game = GuessTheWordGame(-1004244)
+        game.target_word = "zebra"
+        game.dictionary = ["apple", "melon", "zebra"]
+        game.max_guesses = 30
+        game.guess_count = 0
+        game.guess_history = []
+        game.accepting_answers = True
+        game.answered = False
+        game.last_waiting_msg_id = None
+        game.players = [Player(make_user(user_id=5, name="Ada"))]
+        game.players_in_game = list(game.players)
+
+        message = make_message(text="apple", user=make_user(user_id=5, name="Ada"))
+        replies = []
+
+        async def capture(self, text, **kwargs):
+            replies.append(text)
+
+        async def scenario():
+            with (
+                mock.patch(
+                    "chainnokizuna.models.game.guess_the_word.is_word",
+                    return_value=True,
+                ),
+                mock.patch.object(types.Message, "reply", new=capture),
+                mock.patch.object(
+                    GuessTheWordGame, "handle_game_end_winner", new=mock.AsyncMock()
+                ) as end_winner,
+                mock.patch("chainnokizuna.db.redis.save_game", new=mock.AsyncMock()),
+            ):
+                await game.handle_answer(message)
+            return end_winner
+
+        end_winner = run(scenario())
+        rendered = "\n".join(replies)
+        self.assertNotIn("BINGO", rendered)
+        self.assertNotIn("The word was indeed", rendered)
+        self.assertIn("<b>5-letter mode</b> · 1/30", rendered)
+        end_winner.assert_not_called()
+        self.assertFalse(game.answered)
 
 
 if __name__ == "__main__":
