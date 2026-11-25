@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING, Any
 import redis.asyncio as redis
 from aiogram import Bot
 from aiogram.client.default import DefaultBotProperties
-from aiogram.types import BotFullInfo
 from aiogram.enums import ParseMode
+from aiogram.types import BotFullInfo
 from pymongo import AsyncMongoClient
 
 # PyMongo 4.18 moved the async types out of the top-level namespace.
