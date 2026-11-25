@@ -55,6 +55,8 @@ async def main() -> None:
 
     try:
         while True:
+            # A retry must reconnect: the previous iteration's handles were closed.
+            await init_resources()
             if await leader_election.acquire():
                 logger.info(
                     f"Instance {instance_id} is now LEADER. Starting polling..."
@@ -97,8 +99,10 @@ async def main() -> None:
                     logger.warning(
                         "Conflict: terminated by another instance. Retrying..."
                     )
+                    await close_resources()
                 except Exception as e:
                     logger.error(f"Polling crashed: {e}")
+                    await asyncio.sleep(5)
                 finally:
                     logger.info("Releasing leadership...")
                     for task in game_tasks:

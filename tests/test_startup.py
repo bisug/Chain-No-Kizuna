@@ -2,11 +2,14 @@
 forward_origin replacement of the Bot API 7.0-deprecated forward_from field.
 """
 
+import asyncio
 import unittest
 from unittest import mock
 
 from aiogram import types
 
+import chainnokizuna
+from chainnokizuna import shutdown, startup
 from chainnokizuna.core import resources
 from chainnokizuna.core.resources import GlobalState, close_resources
 from chainnokizuna.models.player import Player
@@ -52,6 +55,58 @@ class TestCloseResourcesIsComplete(unittest.TestCase):
             mock.patch.object(resources, "vp_bot", None),
         ):
             run(close_resources())  # must not raise
+
+
+class _FakePeriodicTask:
+    """Awaitable stand-in that records cancel() without touching the event loop."""
+
+    def __init__(self):
+        self.cancel = mock.Mock(return_value=True)
+
+    def done(self):
+        return False
+
+    def __await__(self):
+        async def complete():
+            return None
+
+        return complete().__await__()
+
+
+class TestBackgroundTaskLifecycle(unittest.TestCase):
+    """startup stores the periodic task where shutdown can find and cancel it."""
+
+    def setUp(self):
+        # Never let a task cached by an earlier run leak into this test.
+        chainnokizuna.__dict__.pop("_background_task", None)
+
+    def tearDown(self):
+        chainnokizuna.__dict__.pop("_background_task", None)
+
+    def test_shutdown_cancels_task_created_by_startup(self):
+        # A fake task avoids asyncio.run's end-of-loop cancellation, which would
+        # otherwise make a task that shutdown never touched look cancelled.
+        fake_task = _FakePeriodicTask()
+
+        def fake_create_task(coro):
+            coro.close()  # the stand-in never runs it
+            return fake_task
+
+        async def scenario():
+            await startup()
+            await shutdown()
+
+        with (
+            mock.patch.object(chainnokizuna, "init_resources", new=mock.AsyncMock()),
+            mock.patch.object(chainnokizuna, "set_bot_commands", new=mock.AsyncMock()),
+            mock.patch.object(chainnokizuna.Words, "update", new=mock.AsyncMock()),
+            mock.patch.object(chainnokizuna, "send_admin_group", new=mock.AsyncMock()),
+            mock.patch.object(chainnokizuna, "close_resources", new=mock.AsyncMock()),
+            mock.patch.object(asyncio, "create_task", side_effect=fake_create_task),
+        ):
+            run(scenario())
+
+        fake_task.cancel.assert_called_once_with()
 
 
 class TestInitFailureRunsCleanup(unittest.TestCase):

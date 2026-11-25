@@ -48,6 +48,7 @@ async def background_task_loop():
 @dp.startup()
 async def startup():
     """Bot initialization hook: starts resources and background workers."""
+    global _background_task
     await init_resources()
 
     # Command registration is cosmetic: if Telegram refuses it, the bot should

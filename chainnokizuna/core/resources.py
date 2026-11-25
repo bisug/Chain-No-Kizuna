@@ -177,3 +177,6 @@ async def close_resources() -> None:
         mongo_client.close()
     if vk:
         await vk.aclose()
+    # Cleared so a retry does not short-circuit init_resources() on dead handles.
+    mongo_client = None
+    vk = None
